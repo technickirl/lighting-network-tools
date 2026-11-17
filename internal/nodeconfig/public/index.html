@@ -1,0 +1,351 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Configure · Luminex Commission</title>
+<link rel="stylesheet" href="nodeconfig.css">
+</head>
+<body>
+
+<header>
+  <div class="logo">LUMI<em>NODE</em> LITE</div>
+  <div class="sp"></div>
+  <div id="dry-badge" style="display:none;margin-right:12px;padding:3px 8px;border-radius:2px;background:#92400e;color:#fff;font-family:var(--ff);font-size:10px;font-weight:600">DRY RUN — nothing is sent</div>
+  <div id="conn-badge">
+    <div class="dot" id="dot"></div>
+    <span id="conn-text">DISCONNECTED</span>
+  </div>
+</header>
+
+<div class="toolbar">
+  <label>IP</label>
+  <input class="ip" id="ip" type="text" placeholder="192.168.4.55">
+  <button class="btn pri" id="btn-connect">CONNECT</button>
+  <button class="btn" id="btn-refresh" disabled>REFRESH</button>
+  <button class="btn sec" id="btn-scan">⊹ SCAN</button>
+  <div class="chips" id="chips"></div>
+  <button class="btn dan" id="btn-clear-all" onclick="clearAllNodes()" title="Remove all saved nodes">✕ CLEAR ALL</button>
+</div>
+
+<div class="main">
+  <nav>
+    <button class="tab" data-tab="quicksetup">⚡ Quick Setup</button>
+    <button class="tab active" data-tab="overview">◈ Overview</button>
+    <button class="tab" data-tab="processblocks">⚙ Process</button>
+    <button class="tab" data-tab="ios">⬡ IOs</button>
+    <button class="tab" data-tab="dmx">◎ DMX</button>
+    <button class="tab" data-tab="rdm">✳ RDM</button>
+    <button class="tab" data-tab="network">⌘ Network</button>
+    <button class="tab" data-tab="profiles">◧ Profiles</button>
+    <button class="tab" data-tab="startup">⊡ Startup</button>
+  </nav>
+
+  <div class="content">
+    <div class="warn-banner" id="follow-banner" style="display:none"></div>
+
+    <!-- Quick Setup -->
+    <div class="panel" id="p-quicksetup">
+      <div class="sec-head">QUICK SETUP — sACN INPUT PER PORT
+        <span style="font-family:var(--ff);font-size:10px;color:var(--dim)">REROUTE MODE</span>
+      </div>
+      <p style="font-family:var(--ff);font-size:11px;color:var(--dim);margin-bottom:16px">
+        Set the sACN input universe for each DMX output port.<br>
+        Click Apply to configure all ports in one step.
+      </p>
+      <div id="qs-ports" class="grid2"></div>
+      <div class="qs-apply-bar">
+        <button class="btn pri" id="btn-qs-apply" disabled>⚡ APPLY</button>
+        <span class="qs-apply-hint" id="qs-hint">Connect to a device first.</span>
+      </div>
+    </div>
+
+    <!-- Overview -->
+    <div class="panel active" id="p-overview">
+      <div class="sec-head">DEVICE OVERVIEW
+        <div style="display:flex;gap:6px">
+          <button class="btn sm warn" id="btn-identify" disabled>⊹ IDENTIFY</button>
+          <button class="btn sm dan" id="btn-reboot" disabled>↺ REBOOT</button>
+        </div>
+      </div>
+      <div id="overview-body">
+        <div class="empty"><div class="icon">◈</div>
+        <p>Enter a LumiNode IP and click CONNECT</p></div>
+      </div>
+    </div>
+
+    <!-- Process Blocks -->
+    <div class="panel" id="p-processblocks">
+      <div class="sec-head">PROCESS BLOCKS
+        <span class="live" id="live-pb" style="display:none">
+          <span class="ldot"></span>LIVE
+        </span>
+      </div>
+      <div id="pb-body">
+        <div class="empty"><div class="icon">⚙</div>
+        <p>No device connected</p></div>
+      </div>
+    </div>
+
+    <!-- IOs -->
+    <div class="panel" id="p-ios">
+      <div class="sec-head">INPUT / OUTPUT CONFIGURATION
+        <span class="live" id="live-io" style="display:none">
+          <span class="ldot"></span>LIVE
+        </span>
+      </div>
+      <div class="filters" id="io-filters">
+        <div class="fgroup"><span class="flabel">CLASS</span>
+          <button class="btn sm active-tab" data-iofilter="class" data-val="all">ALL</button>
+          <button class="btn sm" data-iofilter="class" data-val="sacn">sACN</button>
+          <button class="btn sm" data-iofilter="class" data-val="artnet">ART-NET</button>
+          <button class="btn sm" data-iofilter="class" data-val="dmx">DMX</button>
+        </div>
+        <div class="fgroup"><span class="flabel">USAGE</span>
+          <button class="btn sm active-tab" data-iofilter="use" data-val="all">ALL</button>
+          <button class="btn sm" data-iofilter="use" data-val="used">IN USE</button>
+          <button class="btn sm" data-iofilter="use" data-val="unused">UNUSED</button>
+        </div>
+        <div class="fgroup">
+          <button class="btn sm" id="io-internal-toggle" data-iofilter="internal" data-val="toggle"
+            title="The node's internal IOs (one per process block) carry no settings; hidden by default">SHOW INTERNAL</button>
+        </div>
+        <span class="fcount" id="io-count"></span>
+      </div>
+      <div id="io-body">
+        <div class="empty"><div class="icon">⬡</div>
+        <p>No device connected</p></div>
+      </div>
+    </div>
+
+    <!-- DMX Ports -->
+    <div class="panel" id="p-dmx">
+      <div class="sec-head">DMX PORT STATE
+        <span class="live" id="live-dmx" style="display:none">
+          <span class="ldot"></span>LIVE
+        </span>
+      </div>
+      <div id="dmx-body">
+        <div class="empty"><div class="icon">◎</div>
+        <p>No device connected</p></div>
+      </div>
+    </div>
+
+    <!-- RDM -->
+    <div class="panel" id="p-rdm">
+      <div class="sec-head">RDM FIXTURES
+        <span style="margin-left:auto;display:flex;gap:6px">
+          <button class="btn sm sec" id="btn-rdm-read-all" disabled title="Connect to a device first">↻ READ ALL PORTS</button>
+          <button class="btn sm" id="btn-rdm-csv" disabled title="Read some fixtures first">⇩ EXPORT CSV</button>
+        </span>
+      </div>
+      <div class="warn-banner" id="rdm-banner" style="display:none"></div>
+      <div id="rdm-body">
+        <div class="empty"><div class="icon">✳</div>
+        <p>No device connected</p></div>
+      </div>
+    </div>
+
+    <!-- Network -->
+    <div class="panel" id="p-network">
+      <div class="sec-head">NETWORK</div>
+      <div id="net-body">
+        <div class="empty"><div class="icon">⌘</div>
+        <p>No device connected</p></div>
+      </div>
+    </div>
+
+    <!-- Profiles -->
+    <div class="panel" id="p-profiles">
+      <div class="sec-head">PROFILES</div>
+      <div id="prof-body">
+        <div class="empty"><div class="icon">◧</div>
+        <p>No device connected</p></div>
+      </div>
+    </div>
+
+    <!-- Startup buffer (panel was missing in v28: the page script crashed on btn-apply-all-startup) -->
+    <div class="panel" id="p-startup">
+      <div class="sec-head">STARTUP BUFFER — SNAPSHOT PER PROCESS BLOCK
+        <button class="btn sm pri" id="btn-apply-all-startup" disabled
+          title="Apply the selected snapshot to every process block">⊡ APPLY ALL</button>
+      </div>
+      <div id="startup-body">
+        <div class="empty"><div class="icon">⊡</div>
+        <p>No device connected</p></div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- Password Modal -->
+<div class="overlay" id="pw-modal">
+  <div class="modal">
+    <div class="modal-head">
+      <div class="modal-title">PASSWORD NEEDED</div>
+      <button class="modal-x" id="pw-modal-close">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="warn-banner" id="pw-error" style="display:none"></div>
+      <div class="fg"><label>USERNAME</label>
+        <input id="pw-user" type="text" value="admin" autocomplete="off"></div>
+      <div class="fg"><label>PASSWORD</label>
+        <input id="pw-pass" type="password" autocomplete="off"></div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn sec" id="pw-cancel">CANCEL</button>
+      <button class="btn pri" id="pw-save">CONTINUE</button>
+    </div>
+  </div>
+</div>
+
+<!-- Process Block Edit Modal -->
+<div class="overlay" id="pb-modal">
+  <div class="modal">
+    <div class="modal-head">
+      <div class="modal-title" id="pb-modal-title">EDIT PROCESS BLOCK</div>
+      <button class="modal-x" id="pb-modal-close">✕</button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="pb-idx">
+      <div class="fg"><label>NAME</label>
+        <input id="pb-name" type="text" placeholder="Process Block 0"></div>
+      <div class="fg"><label>MERGE MODE</label>
+        <select id="pb-mode">
+          <option value="NONE">NONE — clears the block</option>
+          <option value="LTP">LTP — Latest Takes Priority</option>
+          <option value="HTP">HTP — Highest Takes Priority</option>
+          <option value="BACKUP">BACKUP</option>
+          <option value="XFADE">XFADE — Crossfade</option>
+          <option value="SWITCH">SWITCH</option>
+          <option value="REROUTE">REROUTE</option>
+          <option value="CUSTOM">CUSTOM</option>
+        </select>
+        <div id="pb-none-warn" style="display:none;margin-top:6px;color:var(--red);font-family:var(--ff);font-size:11px">
+        </div></div>
+      <div class="fg"><label>MASTER / LIMIT — set a control for it in INPUTS / OUTPUTS</label>
+        <select id="pb-masterlimit">
+          <option value="NONE">NONE</option>
+          <option value="MASTER">MASTER</option>
+          <option value="LIMIT">LIMIT</option>
+        </select></div>
+      <div class="fg"><label>TIMEOUT (ms) — for BACKUP mode</label>
+        <input id="pb-timeout" type="number" min="0" placeholder="1000"></div>
+      <div class="fg" id="pb-backup-wrap">
+        <label style="display:flex;align-items:center;gap:8px;cursor:pointer">
+          <input type="checkbox" id="pb-autorecov" style="width:auto">
+          AUTO-RECOVER when main source returns (BACKUP mode)
+        </label></div>
+      <div class="fg">
+        <label style="display:flex;align-items:center;gap:8px;cursor:pointer">
+          <input type="checkbox" id="pb-ratelimit" style="width:auto">
+          RATE LIMITING — cap output at 64 fps
+        </label></div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn dan sm" id="pb-clear">CLEAR BLOCK</button>
+      <button class="btn" id="pb-cancel">CANCEL</button>
+      <button class="btn pri" id="pb-save">SAVE</button>
+    </div>
+  </div>
+</div>
+
+<!-- Edit Input Modal -->
+<div class="overlay" id="input-modal">
+  <div class="modal" style="width:480px">
+    <div class="modal-head">
+      <div class="modal-title" id="input-modal-title">INPUTS / OUTPUTS</div>
+      <button class="modal-x" id="input-modal-close">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="wire-head">INPUTS</div>
+      <div id="wire-inputs"></div>
+      <div class="wire-note" id="wire-mode-note"></div>
+      <div class="wire-head">CONTROL</div>
+      <div id="wire-controls"></div>
+      <div class="wire-head">OUTPUTS</div>
+      <div id="wire-outputs"></div>
+      <button class="btn sm sec" type="button" id="wire-add-output" title="Add a network universe or a DMX port">+ ADD OUTPUT</button>
+      <div class="wire-note">A new network output is sACN multicast or Art-Net broadcast.</div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn" id="input-cancel">CANCEL</button>
+      <button class="btn pri" id="input-save">SAVE</button>
+    </div>
+  </div>
+</div>
+
+<!-- Network Edit Modal -->
+<div class="overlay" id="net-modal">
+  <div class="modal">
+    <div class="modal-head">
+      <div class="modal-title">EDIT NETWORK SETTINGS</div>
+      <button class="modal-x" id="net-modal-close">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="warn-banner" id="net-ip-warning" style="display:none">
+        ⚠ Changing the IP address will disconnect the app. It will attempt to
+        reconnect to the new IP automatically.
+      </div>
+      <div class="fg">
+        <label>LONG NAME (up to 63 chars)</label>
+        <input id="net-long-name" type="text" maxlength="63" placeholder="All output 1-4">
+      </div>
+      <div class="fg">
+        <label>SHORT NAME (up to 17 chars)</label>
+        <input id="net-short-name" type="text" maxlength="17" placeholder="All output">
+      </div>
+      <div style="height:1px;background:var(--border);margin:4px 0 16px"></div>
+      <div class="fg">
+        <label>IP ADDRESS</label>
+        <input id="net-ip" type="text" placeholder="192.168.1.100">
+      </div>
+      <div class="fg">
+        <label>NETMASK</label>
+        <input id="net-mask" type="text" placeholder="255.255.0.0">
+      </div>
+      <div class="fg">
+        <label>GATEWAY (0.0.0.0 for none)</label>
+        <input id="net-gateway" type="text" placeholder="0.0.0.0">
+      </div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn" id="net-cancel">CANCEL</button>
+      <button class="btn pri" id="net-save">APPLY CHANGES</button>
+    </div>
+  </div>
+</div>
+
+<!-- Scan Modal -->
+<div class="overlay" id="scan-modal">
+  <div class="modal">
+    <div class="modal-head">
+      <div class="modal-title">mDNS NETWORK SCAN</div>
+      <button class="modal-x" id="scan-close">✕</button>
+    </div>
+    <div class="modal-body">
+      <div id="scan-prog-wrap" style="display:none">
+        <div class="prog"><div class="prog-fill" id="scan-bar"></div></div>
+        <div style="font-family:var(--ff);font-size:10px;color:var(--dim);margin-bottom:12px">
+          Querying all network interfaces for LumiNodes...</div>
+      </div>
+      <div id="scan-status" style="font-family:var(--ff);font-size:11px;
+        color:var(--dim);margin-bottom:12px">
+        Sends mDNS queries on all network interfaces simultaneously.
+      </div>
+      <div id="scan-results"></div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn" id="scan-close2">CLOSE</button>
+      <button class="btn sec" id="btn-do-scan">⊹ SCAN</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script src="nodeconfig.js"></script>
+<script src="rdm-fixtures.js"></script>
+</body>
+</html>

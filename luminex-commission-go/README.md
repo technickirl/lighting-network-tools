@@ -1,0 +1,222 @@
+# Luminex Commission
+
+One tool for Luminex gear: change a node's DMX, IOs and process blocks on a system
+that is already addressed, or commission a new one by scanning, addressing, naming
+and factory resetting devices.
+
+The device list (scan, numbering, addressing, naming, reset) is `../internal/commission`
+and the per-node Configure page is `../internal/nodeconfig`. Their device calls and what
+real devices were seen to do are in `../docs/device-list.md`, `../docs/configure-page.md`
+and `../docs/device-facts.md`.
+
+## Views
+
+The page opens on **Configure**, for changing what a node does on a system that is
+already addressed: DMX, IOs, process blocks. It lists the devices with a Configure
+button on each node. It has no ticks, no Apply and no Factory reset, so nothing in it
+can re-address the system. A device Scan is not finding can be added by address here.
+
+**Address & reset** is the commissioning page: the numbering table (each device type
+Paired or Sequence, with its third octet, start and name prefix), what to apply
+(addresses, device names, LED, web password off), ticks, Apply settings and Factory reset. A page reload stays on the view you were on; a new tab opens on Configure.
+
+**Groups** reads each GigaCore Gen1's groups (Luminex's name for VLANs): name, VLAN ID, and the ports in each,
+with the colour the switch gives each group (`POST /api/groups/read` sends GET requests to `/config/groups` and
+`/config/ports`). **Name groups** sets names for groups 2 and up on the ticked switches (1 to 16 letters, numbers,
+spaces, `- _ .`): it reads the groups, sends each renamed group back with its ports, tagged ports, VLAN ID and IGMP
+settings unchanged, saves, then reads back and fails if a name did not take or anything else about the group changed.
+Gen1 only.
+
+**Profiles:** a set of groups plus a port layout for each switch size, remembered by the app. They are kept by the
+tool in one file, `group-profiles.json`, in the user's config folder (`~/Library/Application Support/luminex-commission/`
+on a Mac, `%AppData%` on Windows, `~/.config` on Linux; set `LUMINEX_PROFILES_FILE` to use another path), so they are
+there the next time it starts. A profile's group names and VLAN IDs are the same on every switch; the ports are set per
+size (10, 12, 16, 26 ports...) on a tab each, so one profile can hold a GigaCore 10 and a GigaCore 12 layout. A switch
+is matched by the number of ports it reports; one with no layout in the profile is skipped and says why. *Add size* can
+start a new layout empty or as a copy of another (ports beyond the new size are dropped). Profiles saved by the
+earlier single-size version are read as a profile with one layout. *New profile* opens a grid of groups against ports: click a
+cell to make that port untagged (U) or tagged (T) in that group; a port left in no group is in Management (click a
+cell in the Management row to put a port back there). The **ISL** row (there by default, like groups 2 and 3) sets which ports
+are links to other switches. Until you click one of its ports it leaves each switch's own ISL ports alone (and the
+profile then refuses to put one of them in a group); once set, the ports shown are exactly the ISL ports, and set with none
+ticked it turns every ISL port back into Management (*leave as they are* undoes that). Changing ISL ports is previewed with a dashed
+outline and a warning, since it can cut switches off from each other. *Save as profile* on a switch's card starts one from what
+that switch has now. *Export* and *Import file…* move a profile between computers. *Use* picks the profile; for each ticked
+switch the page then draws its ports now and the ports after, side by side with an arrow, outlining the ports that change.
+Apply sends each switch the layout for its own size (`action: groupprofile`, only the groups that differ), then reads every
+group back and fails if one did not end up as the profile says. It refuses a port that is an ISL link on that switch and a
+group number the switch does not have. (`GET /api/groups/profiles`, `POST /api/groups/profiles/save` and `/delete`.)
+
+**Fixtures** lists the RDM fixtures on every LumiNode in the device list, from the ports with RDM
+on: per node and port, a table by DMX address (channels, personality, manufacturer, model, label,
+software, sensors), with fixtures that share channels or run past 512 in red. **Read all nodes**
+asks each fixture over Art-Net RDM and changes nothing (addresses, labels, personalities, identify,
+READDRESS… and factory reset keeping the address are on the node's RDM tab); it skips a node in a job, one sharing an
+address and one this computer cannot reach. **Only fixtures with a problem** filters to the clashes,
+and **Export CSV** saves everything read, UIDs included. RDM is turned on per port on the node's
+Configure page, RDM tab (see `../docs/configure-page.md`, "RDM"). Used on a real rig of eight LumiNode 12s on
+12 Nov 2026.
+
+## Using it from an iPad
+
+**Other devices** at the top of the right-hand column turns on access from another device on the
+network, such as an iPad on an access point on the show network. It is **on every time the tool starts**
+(since 1.6.7; start it with `--no-lan` to have it off), with the saved PIN if there is one, else a new
+random PIN shown on this computer's page and in its window. It listens on every network this computer is
+on, Wi-Fi included, so anyone there who has the PIN can sign in: turn it off on a network you don't trust.
+**Turn on** listens on each of this computer's own addresses as well (same port), lists the addresses
+to open on the iPad (e.g. `http://192.168.1.201:3800`), and shows a six-digit PIN; the header shows
+OTHER DEVICES ON. The iPad gets a PIN page first (it signs in as soon as the sixth digit is in, and sends the PIN in the background rather than as a form, so the browser has no insecure-form warning to show); the right PIN signs it in for 12 hours (a cookie
+other sites cannot use). Five wrong PINs lock PIN entry for a minute. **New PIN** signs every device
+out; **Turn off** closes the listeners and drops open connections. Only this computer can see the PIN
+or switch access: on the iPad the switch is shown disabled. A signed-in device can do everything the
+laptop can, including addressing and resets, so keep the PIN to the people running the job. Devices
+still talk to the rig from this computer, over its wired port. If the computer's addresses change
+while it is on (a cable plugged in), it starts or stops listening on them within a few seconds. On
+Windows the firewall may ask the first time.
+
+**Saved PIN.** Below the PIN, **Set a PIN** (or **Keep this PIN** while access is on) saves a six-digit
+PIN on this computer, so it turns on with the same PIN every time and the iPad's PIN does not change
+from show to show. **Change** picks another one; saving while access is
+on uses it straight away and signs every device out. **New PIN** while on is a random one for this time
+only. **Use random** forgets the saved PIN. It is kept, readable only by you, in
+`lan-pin.json` in the tool's settings folder (`~/Library/Application Support/luminex-commission/` on a
+Mac, `%AppData%\luminex-commission\` on Windows; `LUMINEX_LAN_PIN_FILE` moves it).
+
+## Raspberry Pi (headless, starts at boot)
+
+Not yet run on a real Pi. Download `LuminexCommission-<version>-linux-armv6.tar.gz` for 32-bit Pi
+OS (any Pi, including a Pi 1 Model B) or `-linux-arm64.tar.gz` for 64-bit Pi OS on a Pi 3 or later
+(`cat /proc/device-tree/model` says which Pi it is), or build both with `./scripts/build.sh`. Copy it over:
+
+```bash
+scp LuminexCommission-<version>-linux-armv6.tar.gz pi@<pi-address>:
+```
+
+On the Pi, unpack it, rename it and save the PIN that iPads and laptops will sign in with:
+
+```bash
+tar -xzf LuminexCommission-*-linux-armv6.tar.gz && mv LuminexCommission-*-linux-armv6 LuminexCommission
+```
+
+```bash
+./LuminexCommission --save-pin 123456
+```
+
+Then create `/etc/systemd/system/luminex-commission.service`:
+
+```ini
+[Unit]
+Description=Luminex Commission
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+User=pi
+ExecStart=/home/pi/LuminexCommission --no-open
+Restart=always
+RestartSec=3
+
+[Install]
+WantedBy=multi-user.target
+```
+
+```bash
+sudo systemctl enable --now luminex-commission
+```
+
+**Other devices** is on at start, which a Pi needs, because nobody can open its own page to
+turn it on (`--lan` from 1.6.6 is still accepted and changes nothing). Open `http://<pi-address>:3800` on the iPad or laptop and sign in with the PIN. The page
+itself is only on the Pi, so the switch and the PIN controls stay disabled for every other
+device. To change the PIN, run `--save-pin` again and then `sudo systemctl restart luminex-commission`.
+With no saved PIN, it picks a random one at each start and prints it to the log
+(`journalctl -u luminex-commission`). `--save-pin ""` removes the saved PIN. The PIN file is
+`~/.config/luminex-commission/lan-pin.json`.
+Run it as the same user that saved the PIN (`User=pi`), or the service will not find the PIN file.
+Logs: `journalctl -u luminex-commission -f`. For a dry run, add `Environment=DRY_RUN=1` under
+`[Service]`.
+
+Give `eth0` a static address on the show network (`nmcli`). Pi OS's mDNS service (avahi) shares
+UDP 5353 with the tool's scanner, which should work but has not been tested; if scans find nothing,
+`sudo systemctl disable --now avahi-daemon`. A Pi has no battery-backed clock, so on a network with
+no time server the log timestamps are wrong.
+
+## Which devices a batch includes
+
+In Address & reset, a device is ticked when it first appears, and **Apply** and
+**Factory reset** act on everything ticked, so check the list before you click. If you
+untick a device it stays unticked across scans, page reloads and address changes until
+you tick it again or quit the tool. Configure's Network dialog still changes its own
+node, ticked or not.
+
+## Getting to a node's configure page
+
+- **Configure view:** a **Configure** button on each node, whether or not it is being
+  addressed, ticked or not.
+- **Address & reset view:** the same button on each row. As soon as a row shows
+  Addressed ✓, it opens the node at its new address.
+- **Addressed list:** each entry has the button too, and keeps it after that batch
+  has been swapped out and left the scan list. It uses the device's current address
+  if it is on the list, otherwise the last address it was given.
+
+Each device opens in its own browser tab, and clicking again returns to that tab.
+The button is disabled, with a tooltip saying why, for a switch, a device in a
+running job, a dry-run entry, or an address no adapter on this computer can reach.
+
+## Run
+
+```bash
+DRY_RUN=1 ./dist/LuminexCommission-<version>-macos-arm64.command     # safe
+./dist/LuminexCommission-<version>-macos-arm64.command               # live (or double-click it), opens http://localhost:3800
+go run .                                                             # from source (Go 1.25+)
+```
+
+Options: `--no-open`, `--port N`, `PORT=N`, `--no-lan` (other devices off at start), `--save-pin NNNNNN` (save the PIN and exit), `MDNS_BACKEND=mdns|dns-sd`,
+`DEVICE_PORT=N`, `DEVICE_ARTNET_PORT=N` and `ARTNET_LISTEN_PORT=N` (testing only). RDM
+needs UDP 6454: close any other Art-Net software on the laptop, or the RDM views fall back
+to what each node has overheard. Releases ship each Mac binary in a zip, which keeps
+it executable. They are not notarised: the first time, use System Settings → Privacy &
+Security → Open Anyway, or run `xattr -d com.apple.quarantine <file>` once. Build with `./scripts/build.sh` or `scripts\build.bat`.
+
+## Real hardware
+
+Checked on 4 Nov 2026 on a GigaCore 16tf (v1.9.2) and a LumiNode 12 (v2.9.1): both
+addressed and named `.8` to `.9` and back, with both Configure buttons opening the
+node at its new address. An open Configure tab locked during the job and moved
+itself to `.9`, and the Network dialog moved the node back through a job. Add by
+address recognised both as the devices Scan had found.
+
+Passwords have only been tested on the fakes, not on a real device with one set.
+
+## While a job runs
+
+A Configure tab opened from the list follows its device by serial:
+
+- **During a job:** the tab says why, its write buttons are disabled, and the server
+  answers writes with 409. The tab buttons still work, and so do reads.
+- **After an address change:** the tab moves itself to the new address.
+- **Network dialog:** changing the address there runs a job, so mDNS confirms it. A
+  mask or gateway change with the same address is sent directly.
+
+## Passwords
+
+A password entered once works for jobs and for Configure, and follows the device to
+its new address. It is held in memory only, never written to disk or logged. Trying
+order: none, then `admin` with a blank password, then ask.
+
+## Add by address
+
+Under the device list, for a device Scan is not finding. It asks the device what it
+is (LumiNode, LumiCore or GigaCore Gen2; Gen1 has no API that can say), and the
+device stays listed across scans.
+
+Address changes are confirmed by mDNS, so a device mDNS cannot see will end as "Not
+seen afterwards" even when the change worked. A device with a password set cannot be
+added this way yet.
+
+## Not done yet
+
+- A dry-run edit on the configure page shows the badge, but its toast still says
+  "updated" and the page shows the old values, because nothing was sent.
+- A Configure tab opened by typing an address in its own IP box does not follow a
+  device or lock.

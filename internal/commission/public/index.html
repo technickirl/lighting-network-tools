@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Luminex IP Setup</title>
+<link rel="stylesheet" href="/style.css">
+</head>
+<body>
+<div class="shell">
+  <header>
+    <div class="wordmark" id="wordmark">iptop <span id="toolTitle">· Luminex IP setup</span> <span id="version"></span></div>
+    <div id="dryBadge" class="pill dry hidden">DRY RUN — nothing is sent</div>
+    <div class="header-rule"></div>
+    <div id="connPill" class="pill">connecting…</div>
+  </header>
+
+  <main class="main">
+    <div id="banner" class="banner hidden"></div>
+
+    <!-- Only in a tool with a configure page; without one the address view is all there is. -->
+    <div id="viewTabs" class="view-tabs hidden">
+      <button class="view-tab" data-view="configure">Configure</button>
+      <button class="view-tab" data-view="address">Address &amp; reset</button>
+      <button class="view-tab" data-view="groups">Groups</button>
+      <button class="view-tab" data-view="fixtures">Fixtures</button>
+    </div>
+
+    <!-- For a system that is already addressed: nothing in this view changes an address. -->
+    <section id="configureView" class="step-card hidden">
+      <div class="step-head">Devices <span id="configScanStatus" class="muted"></span></div>
+      <div class="step-body">
+        <div id="configureList"></div>
+        <div class="btn-row"><button class="btn" id="btnScanConfigure">⟳ Scan</button></div>
+        <div id="addDevice" class="add-device hidden">
+          <label for="addIp">Not found by Scan? Add by address</label>
+          <input type="text" id="addIp" placeholder="192.168.12.8" autocomplete="off">
+          <button class="btn" id="btnAdd" disabled title="Enter an address first">Add</button>
+        </div>
+        <div id="configLog" class="log-line">› Open a node to edit DMX, IOs and process blocks.</div>
+      </div>
+    </section>
+
+    <!-- GigaCore groups (VLANs): read them, name them, apply a profile. Only Read groups is free of writes. -->
+    <section id="groupsView" class="step-card hidden">
+      <div class="step-head">Groups <span id="groupsStatus" class="muted"></span></div>
+      <div class="step-body">
+        <div class="muted groups-help">A group is Luminex's name for a VLAN: a name, a VLAN ID and the ports in it. Reading changes nothing. Naming groups sends only the new names; ports and VLAN IDs are sent back as they are and checked afterwards.</div>
+        <div class="btn-row"><button class="btn" id="btnReadGroups">⟳ Read groups</button></div>
+        <div id="groupsNames"></div>
+        <div id="groupsProfile"></div>
+        <div id="groupsEditor"></div>
+        <div id="groupsList"></div>
+      </div>
+    </section>
+
+    <!-- RDM fixtures on every node. Reading changes nothing; RDM is turned on per port on a node's RDM tab. -->
+    <section id="fixturesView" class="step-card hidden">
+      <div class="step-head">Fixtures <span id="fixturesStatus" class="muted"></span></div>
+      <div class="step-body">
+        <div class="muted groups-help">RDM fixtures on every LumiNode, from the ports with RDM on. Reading asks each fixture over Art-Net and changes nothing. To turn RDM on for a port, open the node with Configure and use its RDM tab.</div>
+        <div class="btn-row">
+          <button class="btn" id="btnReadFixtures">⟳ Read all nodes</button>
+          <button class="btn" id="btnFixturesCsv" disabled title="Read the fixtures first">⇩ Export CSV</button>
+          <label class="fx-filter"><input type="checkbox" id="fixturesClashesOnly"> Only fixtures with a problem</label>
+        </div>
+        <div id="fixturesBanner" class="banner hidden"></div>
+        <div id="fixturesList"></div>
+      </div>
+    </section>
+
+    <div id="addressView" class="address-view hidden">
+    <!-- Step 1: settings -->
+    <section class="step-card">
+      <div class="step-head"><span class="step-num">1</span> Settings <span class="muted">— addresses are <code id="addrForm">192.168.&lt;third&gt;.&lt;octet&gt;</code></span></div>
+      <div class="step-body">
+        <div class="mask-row">
+          <label class="field-inline">Subnet mask
+            <select id="maskSelect">
+              <option value="255.0.0.0">255.0.0.0 (/8)</option>
+              <option value="255.255.0.0">255.255.0.0 (/16)</option>
+              <option value="255.255.255.0">255.255.255.0 (/24)</option>
+            </select>
+          </label>
+          <span class="muted">applied to every device addressed</span>
+        </div>
+        <div id="maskNote" class="combo-note"></div>
+        <div class="mask-row">
+          <label class="field-inline">Network
+            <span class="prefix-inputs"><input type="number" id="prefixA" min="1" max="223" value="192"><span>.</span><input type="number" id="prefixB" min="0" max="255" value="168"><span class="muted">.&lt;third&gt;.&lt;octet&gt;</span></span>
+          </label>
+          <select id="prefixPreset" title="The usual choices">
+            <option value="">Other</option><option value="192.168">192.168.x.x</option><option value="172.16">172.16.x.x</option><option value="10.0">10.0.x.x</option><option value="2.0">2.0.x.x</option>
+          </select>
+          <span class="muted">the first two octets of every address</span>
+        </div>
+        <div id="prefixNote" class="combo-note"></div>
+        <div class="mask-row all-octet">
+          <label class="field-inline">Numbering
+            <select id="numberingMethod"><option value="cabling">Follow the cabling</option><option value="simple">One 4th octet per batch</option></select>
+          </label>
+          <label class="field-inline">4th octet <input type="number" id="allOctetInput" min="1" max="254" value="1"></label>
+          <span id="methodNote" class="muted"></span>
+        </div>
+        <div class="scheme-row">
+          <div class="scheme-main">
+            <table class="scheme-table">
+              <thead><tr><th>Type</th><th class="col-off">Paired / Sequence</th><th>Third octet</th><th class="col-off">Start</th><th>Name prefix</th><th>Next address</th></tr></thead>
+              <tbody id="schemeRows"></tbody>
+            </table>
+            <div class="combo-actions"><button class="btn" id="btnTopo">⟳ Read topology</button>
+              <button class="btn" id="btnSaveNumbering" title="Save this table to a file">Save numbering</button>
+              <button class="btn" id="btnLoadNumbering">Load numbering</button><input type="file" id="numberingFile" accept=".json,application/json" class="hidden">
+              <div id="comboNote" class="combo-note"></div></div>
+            <label class="toggle-row"><input type="checkbox" id="renumberAll"> Renumber all in cabling order <span class="muted">— off: devices on a planned address keep it; new ones continue after the highest used</span></label>
+            <div class="muted numbering-help"><b>Paired:</b> a switch and its cabled node share a last octet (2.1 + 3.1), numbered along the chain.
+              <b>Sequence:</b> counts up from Start.
+              Types can share a third octet, except a Paired switch and its node.</div>
+          </div>
+          <div class="opt-box">
+            <div class="set-title">Apply</div>
+            <label class="opt"><input type="checkbox" id="optIp" checked> IP addresses</label>
+            <label class="opt"><input type="checkbox" id="optName"> Device name
+              <select id="nameStyle"><option value="prefix">Prefix + last two octets</option><option value="model">Model + last octet</option></select>
+              <span class="muted">e.g. <code id="nameExample"></code></span></label>
+            <label class="opt"><input type="checkbox" id="optLed"> LED brightness
+              <select id="ledSelect"><option>0</option><option>1</option><option selected>2</option><option>3</option><option>4</option></select></label>
+            <label class="opt"><input type="checkbox" id="optAuth"> Turn web password off
+              <span class="warn-text">anyone on the network can then change or reset them</span></label>
+            <div class="muted">Sent in this order on <b>Apply settings</b>. Web password skips Gen1, and its tick clears after each Apply. Interrupted? Apply again: devices already set are skipped.</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Step 2: devices -->
+    <section class="step-card">
+      <div class="step-head"><span class="step-num">2</span> Devices found <span id="scanStatus" class="muted"></span>
+        <span class="spacer"></span>
+        <span class="view-toggle" id="viewToggle" role="group" aria-label="How to show the device list">
+          <button type="button" data-view="detailed" title="Full detail for each device">Detailed</button><button type="button" data-view="compact" title="One line per device">Compact</button><button type="button" data-view="tiles" title="Small cards, several across">Tiles</button>
+        </span></div>
+      <div class="step-body">
+        <div id="deviceArea"></div>
+        <div class="btn-row">
+          <button class="btn" id="btnScan">⟳ Scan</button>
+          <button class="btn btn-primary" id="btnApply" disabled>Apply settings ↓</button>
+          <button class="btn" id="btnFixDup" disabled>Fix duplicates</button>
+          <button class="btn btn-danger" id="btnReset" disabled>⚠ Factory reset</button>
+          <label class="toggle-row"><input type="checkbox" id="keepProfiles" checked> Keep LumiNode profiles on reset</label>
+          <label class="toggle-row" title="Devices keep their IP address, mask and gateway through the factory reset."><input type="checkbox" id="keepIp"> Keep IP address on reset</label>
+          <label class="toggle-row" title="Allows an address in use, or two devices getting one address. Shared addresses can't be configured reliably until one moves."><input type="checkbox" id="ignoreClash"> Ignore address clashes</label>
+          <div class="spacer"></div>
+          <div id="summary" class="summary hidden"></div>
+        </div>
+        <div id="settingsNote" class="combo-note"></div>
+        <div id="logLine" class="log-line">› Ready. Connect one switch (+ its nodes) and click Scan.</div>
+      </div>
+    </section>
+
+    </div>
+
+    <div id="netInfo" class="netinfo"></div>
+  </main>
+
+  <aside class="sidebar">
+    <!-- Only in a tool that offers it (Commission): access from an iPad on the network, with a PIN. -->
+    <div id="lanBox" class="lan-box hidden">
+      <div class="sidebar-header">Other devices <button id="btnLan" class="btn btn-small" disabled title="Reading…">…</button></div>
+      <div id="lanBody" class="lan-body"></div>
+    </div>
+    <div class="sidebar-header">Addressed <button id="btnClearHistory" class="btn btn-small">Clear list</button></div>
+    <div id="historyList" class="history-list"></div>
+  </aside>
+</div>
+
+<!-- Reset confirmation -->
+<div id="confirmModal" class="modal hidden">
+  <div class="modal-box">
+    <h2>Factory reset <span id="confirmCount"></span> device(s)?</h2>
+    <p class="warn-text"><span id="confirmIp">Wipes IP settings. Devices reboot on their factory default address.</span> <span id="confirmProfiles"></span></p>
+    <ul id="confirmList" class="confirm-list"></ul>
+    <p id="confirmGen2Note" class="note hidden"></p>
+    <div class="modal-actions">
+      <button id="btnConfirmCancel" class="btn">Cancel</button>
+      <button id="btnConfirmGo" class="btn btn-danger">Yes, reset them</button>
+    </div>
+  </div>
+</div>
+
+<!-- Password -->
+<div id="passwordModal" class="modal hidden">
+  <div class="modal-box">
+    <h2>Password needed</h2>
+    <p>Password needed. Nothing sent yet.</p>
+    <ul id="passwordList" class="confirm-list"></ul>
+    <label class="field">Username <input type="text" id="pwUser" value="admin" autocomplete="off"></label>
+    <label class="field">Password <input type="password" id="pwPass" autocomplete="off"></label>
+    <label class="field checkbox"><input type="checkbox" id="pwAll" checked> Use this password for all of them</label>
+    <div class="modal-actions">
+      <button id="btnPwSkip" class="btn">Skip these devices</button>
+      <button id="btnPwGo" class="btn btn-primary">Continue</button>
+    </div>
+  </div>
+</div>
+
+<script src="/combo.js"></script>
+<script src="/app.js"></script>
+<script src="/settings.js"></script>
+<script src="/groups.js"></script>
+<script src="/fixtures.js"></script>
+<script src="/lan.js"></script>
+</body>
+</html>

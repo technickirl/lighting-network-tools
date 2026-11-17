@@ -1,0 +1,67 @@
+SUPPORTED_PARAMETERS ack 0015 0070 0080 0081 0082 0090 00A0 00B0 00E0 00E1 0120 0121 0122 0200 0201 0343 0344 0400 0401 0700 0701 0702 0703 0705 0706 0707 0708 0709 070A 1001 8500 8501 8502 8505 8510 8514 8515 8512 8800 8600 8601 8602 8700 8701 8513 8400
+  8500 'DMX Smoothing'                          pdl=1 type=u8 cc=GET_SET unit=0 prefix=0 min=1 max=3 default=1
+        value ack: 01
+  8501 'DMX Smoothing Name'                     pdl=32 type=ascii cc=GET unit=0 prefix=0 min=0 max=0 default=0
+        value ack: 4f6666
+  8502 'DMX Forwarding'                         pdl=1 type=u8 cc=GET_SET unit=0 prefix=0 min=0 max=1 default=0
+        value ack: 00
+  8505 'Restore DMX Preset'                     pdl=1 type=u8 cc=SET unit=0 prefix=0 min=1 max=4 default=1
+  8510 'High Speed'                             pdl=1 type=u8 cc=GET_SET unit=0 prefix=0 min=0 max=1 default=0
+        value ack: 00
+  8514 'RGBW Colourspace'                       pdl=1 type=u8 cc=GET_SET unit=0 prefix=0 min=0 max=7 default=0
+        value ack: 01
+  8515 'RGBW Colourspace Name'                  pdl=32 type=ascii cc=GET unit=0 prefix=0 min=0 max=0 default=0
+        value ack: 43616c696272617465642052474257
+  8512 'Blackout on Startup'                    pdl=1 type=u8 cc=GET_SET unit=0 prefix=0 min=0 max=1 default=0
+        value ack: 00
+  8800 'Master Mode'                            pdl=1 type=u8 cc=GET_SET unit=0 prefix=0 min=0 max=1 default=0
+        value ack: 01
+  8600 'CRMX Enabled'                           pdl=1 type=u8 cc=GET_SET unit=0 prefix=0 min=0 max=1 default=0
+        value ack: 01
+  8601 'CRMX Link State'                        pdl=1 type=u8 cc=GET unit=0 prefix=0 min=0 max=1 default=0
+        value ack: 00
+  8602 'CRMX BLE Enabled'                       pdl=1 type=u8 cc=GET_SET unit=0 prefix=0 min=0 max=1 default=0
+        value ack: 01
+  8700 'SACN Enabled'                           pdl=1 type=u8 cc=GET_SET unit=0 prefix=0 min=0 max=1 default=0
+        value ack: 01
+  8701 'SACN Universe'                          pdl=2 type=u16 cc=GET_SET unit=0 prefix=0 min=1 max=63999 default=1
+        value ack: 0001
+  8513 'Display Always On'                      pdl=1 type=u8 cc=GET_SET unit=0 prefix=0 min=0 max=1 default=0
+        value ack: 01
+  8400 'Device Location'                        pdl=20 type=ascii cc=GET_SET unit=0 prefix=0 min=0 max=0 default=0
+        value ack: 
+  std 0015 ack: 000000000000
+  std 0070 ack: 0004040306010604
+  std 0080 ack: 566f72746578203853
+  std 0081 ack: 437265616d736f75726365
+  std 0082 ack: 4353562d385320393031333935
+  std 0090 ack: 00
+  std 00A0 ack: 656e7a686b6f6a6165736672646569747074
+  std 00B0 ack: 656e
+  std 00E0 ack: 014b
+  std 00E1 nack: 1
+  std 0120 ack: 0000000002000100020800020002080003000501000400020500050002060006000207000700021200080005060009000502
+  std 0121 nack: 1
+  std 0122 ack: 000000000100000200000300000400000500000600000700000800000900
+  std 0200 nack: 1
+  std 0201 nack: 1
+  std 0343 ack: 0104
+  std 0344 nack: 1
+  std 0400 ack: 00000645
+  std 0401 ack: 00000377
+  std 0700 ack: 000000010001
+  std 0701 nack: 1
+  std 0702 nack: 1
+  std 0703 nack: 1
+  std 0705 nack: 1
+  std 0706 nack: 1
+  std 0707 nack: 5
+  std 0708 nack: 5
+  std 0709 nack: 5
+  std 070A ack: 0000000100000000
+  std 1001 nack: 0
+  sensor 0 'LED Panel Temperature' type=0 unit=1 prefix=0 range=-40..120 normal=-20..80 rec=0 value=00000e000000000000
+  sensor 1 'Fan 1 RPM' type=11 unit=0 prefix=0 range=0..3000 normal=0..3000 rec=0 value=010000000000000000
+  sensor 2 'Fan 2 RPM' type=11 unit=0 prefix=0 range=0..3000 normal=0..3000 rec=0 value=020000000000000000
+  sensor 3 'Fan 3 RPM' type=11 unit=0 prefix=0 range=0..3000 normal=0..3000 rec=0 value=030000000000000000
+  sensor 4 'Fan 4 RPM' type=11 unit=0 prefix=0 range=0..3000 normal=0..3000 rec=0 value=040000000000000000

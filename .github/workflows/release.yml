@@ -1,0 +1,60 @@
+name: Release
+
+# Push a tag like v1.0.1 and this builds Luminex Commission's five binaries and
+# attaches them to a GitHub Release. Nobody needs Go installed to ship. Every file carries the
+# version in its name (LuminexCommission-1.0.1-macos-arm64.command) and reports it in
+# its UI. Mac files end in .command so a double-click opens them in Terminal; with
+# dots in the name Finder would otherwise take ".1-macos-arm64" for the extension.
+# Each Mac file ships inside a zip of the same name, because a browser drops the
+# executable flag from a raw download and macOS then refuses to run it.
+# It also ships for a Raspberry Pi (linux-armv6: 32-bit Pi OS, any Pi;
+# linux-arm64: 64-bit Pi OS), each in a .tar.gz for the same reason.
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - name: build Commission
+        env:
+          CGO_ENABLED: "0"
+        run: |
+          set -e
+          mkdir -p out
+          VERSION="${GITHUB_REF_NAME#v}"   # v1.0.5 -> 1.0.5, in every file name and in the binary
+          build() { GOOS=$2 GOARCH=$3 GOARM=6 go build -trimpath -ldflags "-s -w -X main.version=$VERSION" -o "out/$4" "./$1"; }
+          tool=luminex-commission-go name=LuminexCommission
+          build $tool darwin  arm64 $name-$VERSION-macos-arm64.command
+          build $tool darwin  amd64 $name-$VERSION-macos-x64.command
+          build $tool windows amd64 $name-$VERSION-win-x64.exe
+          build $tool linux   arm   $name-$VERSION-linux-armv6
+          build $tool linux   arm64 $name-$VERSION-linux-arm64
+          cd out
+          for f in *.command; do
+            chmod +x "$f"
+            zip -X -q "${f%.command}.zip" "$f"
+            rm "$f"
+          done
+          for f in *-linux-*; do
+            chmod +x "$f"
+            tar -czf "$f.tar.gz" "$f"
+            rm "$f"
+          done
+          cd ..
+          ls -la out
+      - name: release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" --title "Luminex Commission $GITHUB_REF_NAME" --generate-notes \
+            --notes "Built by CI from tag $GITHUB_REF_NAME. Mac: unzip and double-click. Raspberry Pi: see the Commission README. Builds are not notarised, so the first time use System Settings → Privacy & Security → Open Anyway, or \`xattr -d com.apple.quarantine <file>\`. Opens http://localhost:3800. Use DRY_RUN=1 for a first run on real hardware." \
+            out/*

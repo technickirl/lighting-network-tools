@@ -1,0 +1,147 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Luminex Commission – Quick User Guide</title>
+<style>
+  @page { size: A4; margin: 16mm 16mm 16mm 16mm; }
+  body { font-family: -apple-system, "Helvetica Neue", Helvetica, Arial, sans-serif; font-size: 10pt; line-height: 1.4; color: #1a1a1a; margin: 0; }
+  h1 { font-size: 19pt; margin: 0 0 2pt; }
+  .byline { color: #666; margin: 0 0 10pt; }
+  h2 { font-size: 13pt; margin: 14pt 0 4pt; padding-bottom: 2pt; border-bottom: 1px solid #ddd; }
+  section { break-inside: avoid; page-break-inside: avoid; }
+  p { margin: 0 0 6pt; }
+  ul, ol { margin: 0 0 6pt; padding-left: 18pt; }
+  li { margin: 0 0 3pt; }
+  li p { margin: 0; }
+  code { font-family: Menlo, Consolas, monospace; font-size: 8.8pt; background: #f2f2f2; padding: 0 2px; border-radius: 2px; }
+  table { border-collapse: collapse; width: 100%; margin: 0 0 8pt; }
+  th, td { border: 1px solid #d6d6d6; padding: 3pt 5pt; text-align: left; vertical-align: top; }
+  th { background: #f0efec; }
+  td:first-child { width: 28%; }
+</style>
+</head>
+<body>
+<h1>Luminex Commission – Quick User Guide</h1>
+<p class="byline">17 November 2026 · version 1.7.0 · Nick Malbon and Alex Mead</p>
+
+<section>
+<h2>What it does</h2>
+<p>Luminex Commission is one app, run on a laptop on the wired show network, that finds every LumiNode, LumiCore and GigaCore on the network and lets you address, name, reset and configure them, and read and set RDM fixtures through the nodes. It serves its own page in your browser at <code>http://localhost:3800</code>; nothing is installed and no internet is needed.</p>
+<table><thead><tr><th>View</th><th>Use it for</th></tr></thead><tbody>
+<tr><td>Configure</td><td>Changing a node on a system that is already addressed: profiles, Quick Setup, DMX ports, IOs, process blocks, RDM. Nothing here can re-address the rig.</td></tr>
+<tr><td>Address &amp; reset</td><td>Commissioning: numbering plan, addresses, names, LED, factory reset.</td></tr>
+<tr><td>Groups</td><td>GigaCore Gen1 groups (VLANs): read, rename, and apply group profiles.</td></tr>
+<tr><td>Fixtures</td><td>Every RDM fixture on every node, by DMX address, with clashes in red.</td></tr>
+</tbody></table>
+</section>
+
+<section>
+<h2>Getting started</h2>
+<ol>
+<li><p>Download the release for your laptop: <code>LuminexCommission-&lt;version&gt;-macos-arm64</code> (Apple silicon), <code>-macos-x64</code> (Intel Mac) or <code>-win-x64.exe</code>. Mac builds come as a zip; unzip it.</p></li>
+<li><p>Give the laptop a static address on the show network, on the same first two octets as the rig (for example <code>192.168.0.200/16</code>), on the wired port.</p></li>
+<li><p>Start it. Mac: the first time, run <code>xattr -d com.apple.quarantine &lt;file&gt;</code> or use System Settings → Privacy &amp; Security → Open Anyway, then double-click. Windows: double-click, and allow it through the firewall when asked.</p></li>
+<li><p>The page opens at <code>http://localhost:3800</code> and scans straight away. Close any other Art-Net software first: RDM needs UDP port 6454.</p></li>
+</ol>
+</section>
+
+<section>
+<h2>The device list</h2>
+<p>Devices are found by mDNS (<code>_luminex._tcp</code>) and listed with model, name, address, serial and firmware, plus what each is cabled to (read from LLDP). The scan reruns by itself when the laptop gains an address, such as a cable being plugged in; press <strong>Scan</strong> any time.</p>
+<ul>
+<li><p><strong>Not listed?</strong> Use <strong>Add by address</strong> under the list. It works for LumiNode, LumiCore and GigaCore Gen2, not Gen1.</p></li>
+<li><p><strong>Red notes</strong> flag devices sharing an address and a device on the laptop's own address (unreachable until you move the laptop).</p></li>
+<li><p><strong>Passwords:</strong> the app tries none, then <code>admin</code> with a blank password, then asks. A password you type is kept in memory for that device only, never saved.</p></li>
+<li><p><strong>Identify</strong> on a row flashes the device.</p></li>
+</ul>
+</section>
+
+<section>
+<h2>Addressing and naming (Address &amp; reset)</h2>
+<p>Every address is <code>&lt;network&gt;.&lt;third octet&gt;.&lt;n&gt;</code>, where you pick the first two octets in the <strong>Network</strong> box and a third octet per device type in the numbering table.</p>
+<ol>
+<li><p><span style="white-space:pre-wrap"><strong>Simple</strong> <strong>Numbering</strong>: <em>One 4th octet per batch</em> (no cabling needed: every ticked device gets the same last octet on its type's third octet, then it steps on for the next batch) </span></p></li>
+<li><p><strong>Following the cabling</strong>, set each device type to <strong>Paired</strong> or <strong>Sequence</strong>. Paired: a switch and the node cabled to it share a last octet (switch <code>.2.1</code> + node <code>.3.1</code>, then <code>.2.2</code> + <code>.3.2</code>), numbered along the chain. Sequence: the type counts 1, 2, 3 on its own third octet. Reorder with ↑/↓ or drag.</p></li>
+<li><p>Check the <strong>Next address</strong> column. Devices already in range keep their number; tick <em>Renumber all in cabling order</em> to start again.</p></li>
+<li><p>Under <strong>Apply</strong>, tick what to send (addresses, device names, LED, web password off) and the devices to include. Every new device starts ticked.</p></li>
+<li><p><strong>Apply settings.</strong> Nodes move first, then switches; each change is confirmed when the device reappears in mDNS at the new address, then names and LED are sent and read back.</p></li>
+</ol>
+<p>Devices sharing one address (hire stock often arrives that way) are flagged in red; <strong>Fix duplicates</strong> moves each one to its planned address over IPv6 link-local, without touching anything else. GigaCore Gen1 has no IPv6, so connect those one at a time. <strong>Save numbering</strong> keeps the table in a file per rig.</p>
+</section>
+
+<section>
+<h2>Configuring a node</h2>
+<p><strong>Configure</strong> on a node's row opens it in its own tab, which follows the node if its address changes and locks its write buttons while a job runs on it.</p>
+<p>The <strong>chips</strong> in the toolbar at the top are the nodes this browser has connected to, kept across reloads, with the current one highlighted. Click a chip to switch the tab to that node; its <strong>✕</strong> only removes it from the list and sends nothing to the node, and <strong>CLEAR ALL</strong> empties the list.</p>
+<table><thead><tr><th>Tab</th><th>What you do there</th></tr></thead><tbody>
+<tr><td>Quick Setup</td><td>Set one sACN universe per DMX port and apply all ports in one step (reroute mode).</td></tr>
+<tr><td>Profiles</td><td>Recall or save a profile on the node.</td></tr>
+<tr><td>Process / IOs</td><td>See and edit process blocks (merge, backup, crossfade) and the sACN, Art-Net and DMX IOs feeding them.</td></tr>
+<tr><td>DMX</td><td>Live state of each DMX port.</td></tr>
+<tr><td>RDM</td><td>Turn RDM on per port, read and set fixtures (next section).</td></tr>
+<tr><td>Network</td><td>Address, mask and gateway; an address change runs as a confirmed job.</td></tr>
+<tr><td>Startup</td><td>Startup buffers.</td></tr>
+</tbody></table>
+<p><strong>Quick Setup</strong> is the fastest way to patch a node: each DMX port gets one universe straight through. The tab shows a field per port, filled with the universe it takes now; type the universes you want and press <strong>Apply</strong>, which sends at once. Each port you fill has its process block rebuilt as a simple reroute (input to port, named <code>Port 1 U101</code> and so on), so any merge, backup or startup buffer on that block is replaced; leave a field blank to leave that port alone. The protocol stays what the port already uses, sACN or Art-Net (the label above the field says which), and a new sACN input comes in at priority 100.</p>
+<p>A node that has changed address may show its active profile as <em>None</em> afterwards; its blocks and IOs are unchanged.</p>
+</section>
+
+<section>
+<h2>RDM</h2>
+<p>RDM runs from the laptop over Art-Net through each node, and works on ports fed by sACN with no change to the port.</p>
+<ol>
+<li><p>On the node's <strong>RDM</strong> tab, <strong>Turn RDM on…</strong> for a port and confirm in the page. DMX keeps flowing, though some older fixtures flicker during discovery.</p></li>
+<li><p>Wait for <em>Searching… n found</em> to settle (about 10 to 15 s for a line of 15 to 20 fixtures). The port is then read and shown as tiles; <strong>TABLE</strong> switches to a table.</p></li>
+<li><p>Fixtures that were still powering up are missed: press <strong>Rediscover</strong> to search again.</p></li>
+</ol>
+<ul>
+<li><p><strong>Tap a tile</strong> to identify that fixture; <strong>double-tap</strong> for its fixture page (patch, hours, sensors and every setting it supports). <strong>ID OFF</strong> stops all identifies on the port.</p></li>
+<li><p><strong>Tap the address</strong> on a tile for the keypad: type, then <strong>SEND &amp; NEXT</strong> walks down the line. <em>Next = this +</em> sets the step (CH follows each fixture's footprint).</p></li>
+<li><p><strong>Edit</strong> or the fixture page sets address, label and personality. Every SET is read back, and clashes or a run past 512 show in red.</p></li>
+<li><p><strong>Tick tiles</strong> on one port to act on them together: ID ON / ID OFF, <strong>PERSONALITY…</strong> and <strong>SETTING…</strong> (one model only), <strong>READDRESS…</strong> and <strong>FACTORY RESET…</strong> (warning first). They run one fixture after another, and each tile shows how it went.</p></li>
+<li><p><strong>READDRESS…</strong> respaces the ticked fixtures in their current patch order, for example after a mode change. Choose a new mode for all of them (one model only; mixed models keep their own), <strong>from</strong> a start address and <strong>every</strong> N channels, or leave <em>every</em> empty to pack them by footprint. The line underneath shows every move (<code>1→1 · 11→21</code>) and warns about unticked fixtures the new patch would overlap; the button stays grey if the spacing is too small or the patch would run past 512.</p></li>
+<li><p><strong>Factory reset</strong> (fixture page or ticked tiles) shows a warning first. With <strong>KEEP ADDRESS</strong> on (the default) each fixture is reset and then put back on its own DMX address; the mode goes back to factory, so check the tiles for clashes and use READDRESS… if the footprint changed. If the address cannot be read first, nothing is sent.</p></li>
+<li><p>The <strong>Fixtures</strong> view reads every node with RDM on and lists all fixtures by address; <strong>Only fixtures with a problem</strong> filters to clashes and <strong>Export CSV</strong> saves the patch with UIDs.</p></li>
+</ul>
+</section>
+
+<section>
+<h2>Factory reset (nodes and switches)</h2>
+<p>For RDM fixtures, see RDM above. <strong>Factory reset</strong> in Address &amp; reset resets every ticked device at once, with no confirmation pop-up, so check the ticks first.</p>
+<ul>
+<li><p><strong>Keep IP address on reset</strong> leaves each device on its current address. Without it a device returns to its factory default address, which differs between devices.</p></li>
+<li><p><strong>Keep LumiNode profiles</strong> keeps the nodes' stored profiles.</p></li>
+<li><p>A reset counts as done when the same device (matched by serial) reappears in mDNS. Expect 70 to 90 s.</p></li>
+<li><p>Afterwards devices have their default names, and nodes are on the factory profile <em>Output ArtNet 0-11</em>: no sACN until you recall an sACN profile.</p></li>
+</ul>
+</section>
+
+<section>
+<h2>Using it from an iPad</h2>
+<p><strong>Other devices</strong> (top of the right-hand column) lets an iPad or second laptop on the network use the app. It is on every time the app starts.</p>
+<ol>
+<li><p>Note the address it lists (for example <code>http://192.168.1.201:3800</code>) and the six-digit PIN, shown only on the laptop.</p></li>
+<li><p>Open that address on the iPad and type the PIN. It stays signed in for 12 hours.</p></li>
+<li><p><strong>Set a PIN</strong> saves one PIN on the laptop, so it stays the same from show to show. <strong>New PIN</strong> signs every device out; <strong>Turn off</strong> closes access.</p></li>
+</ol>
+<p>A signed-in device can do everything the laptop can, resets included, so keep the PIN to the crew running the job. Access listens on every network the laptop is on, Wi-Fi too: turn it off on a network you don't trust. RDM state is shared, so fixtures read on the laptop are already on the iPad.</p>
+</section>
+
+<section>
+<h2>Troubleshooting</h2>
+<table><thead><tr><th>Symptom</th><th>Check</th></tr></thead><tbody>
+<tr><td>No devices found</td><td>Laptop on the wired port, with an address on the rig's network. A red banner means mDNS could not start at all.</td></tr>
+<tr><td>A device is missing</td><td>It may share the laptop's address (red note), or mDNS is blocked: use <strong>Add by address</strong>.</td></tr>
+<tr><td>Address change ends <em>Not seen afterwards</em></td><td>The change may have worked but mDNS can't see the device; Scan again or check it at the new address.</td></tr>
+<tr><td>RDM tab shows only overheard fixtures</td><td>Another program holds UDP 6454; close it and reopen the tab.</td></tr>
+<tr><td>Fixtures overlap after a factory reset</td><td>The reset kept the addresses but put each fixture back on its factory mode, which can have a different footprint: tick them and use <strong>READDRESS…</strong> to set the mode and respace them in one go.</td></tr>
+<tr><td>RDM finds fewer fixtures than are on the line</td><td>Fixtures were booting when RDM went on: <strong>Rediscover</strong>.</td></tr>
+<tr><td>No sACN after a reset</td><td>Nodes come back on the factory profile, Art-Net 0-11: recall an sACN profile. Quick Setup keeps each port's protocol, so it would stay on Art-Net.</td></tr>
+<tr><td>Configure button greyed out</td><td>Hover for the reason: a switch, a device in a running job, or an address no adapter can reach.</td></tr>
+<tr><td>Page looks out of date after an update</td><td>It reloads itself on reconnect; otherwise hard-refresh (Ctrl/Cmd+Shift+R).</td></tr>
+</tbody></table>
+<p>Every device request and reply is logged with a timestamp in the app's window; send that log with any fault report.</p>
+</section>
+</body>
+</html>
