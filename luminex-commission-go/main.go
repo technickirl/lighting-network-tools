@@ -32,7 +32,7 @@ import (
 
 // version is the release this build belongs to. Builds from a v* tag set it
 // with -ldflags "-X main.version=<tag>"; a plain `go run .` shows this default.
-var version = "1.7.0"
+var version = "1.7.1"
 
 func openBrowser(url string) {
 	var cmd *exec.Cmd
