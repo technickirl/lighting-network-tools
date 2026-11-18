@@ -9,7 +9,7 @@ serves a local web page and finds devices over mDNS (`_luminex._tcp`).
 - Scan, number, address and name devices, following the cabling.
 - Factory reset nodes and switches, keeping the address if wanted.
 - A Configure page per node: DMX ports, IOs, process blocks, Quick Setup, profiles.
-- RDM fixtures over Art-Net: read, set address / personality / label, readdress, factory reset.
+- RDM fixtures over Art-Net(even if port is set to sACN): read, set address / personality / label, readdress, factory reset.
 - Use it from an iPad on the show network, behind a PIN.
 
 > **Unofficial.** This project is not made, endorsed or supported by Luminex Network
