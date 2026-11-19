@@ -184,32 +184,26 @@ func readFixtures(ip string, port int) (*rdmRead, error) {
 	out := &rdmRead{Port: port, Universe: int(pa)}
 	ctl, err := rdmController()
 	var fixtures []rdmFixture
+	var others []int
+	if err == nil {
+		others, err = sharingPorts(ip, port, pa)
+	}
 	if err == nil {
 		var tables []artnet.TodTable
-		ports := rdmPortsOn(ip, pa)
-		if tables, err = ctl.TodTables(ip, pa, ports, todWait); err == nil {
-			rest, rerr := connectedUIDs(ip, port)
-			if rerr == nil {
-				rdmStoreCount(ip, port, len(rest))
+		if tables, err = ctl.TodTables(ip, pa, 1+len(others), todWait); err == nil {
+			var uids []artnet.UID
+			if len(others) == 0 {
+				uids = soloPortFixtures(ip, port, tables)
+			} else {
+				uids, out.Note, err = sharedPortFixtures(ip, port, others, tables)
 			}
-			uids := portTable(ip, port, ports, tables, rest, rerr == nil)
-			// Also read any fixture the node lists over HTTP that its Art-Net table
-			// did not give, so a Read never shows fewer than the node has found.
-			seen := map[artnet.UID]bool{}
-			for _, u := range uids {
-				seen[u] = true
-			}
-			for _, s := range rest {
-				if u, perr := artnet.ParseUID(s); perr == nil && !seen[u] {
-					seen[u] = true
-					uids = append(uids, u)
+			if err == nil {
+				fixtures = make([]rdmFixture, 0, len(uids))
+				for _, u := range uids {
+					fixtures = append(fixtures, readFixture(ctl, ip, pa, u))
 				}
+				out.Source = "artnet"
 			}
-			fixtures = make([]rdmFixture, 0, len(uids))
-			for _, u := range uids {
-				fixtures = append(fixtures, readFixture(ctl, ip, pa, u))
-			}
-			out.Source = "artnet"
 		}
 	}
 	if artErr := err; artErr != nil {
@@ -230,56 +224,156 @@ func readFixtures(ip string, port int) (*rdmRead, error) {
 	return out, nil
 }
 
-// rdmPortsOn counts the node's DMX ports with RDM on at this port-address:
-// each answers an ArtTodRequest with its own table. At least 1.
-func rdmPortsOn(ip string, pa artnet.PortAddress) int {
+// sharingPorts lists the node's other DMX ports with RDM on at this port's
+// port-address. An RDM request to the address goes out on all of their lines,
+// and each answers an ArtTodRequest with its own table.
+func sharingPorts(ip string, port int, pa artnet.PortAddress) ([]int, error) {
 	ios, err := dmxIOs(ip)
 	if err != nil {
-		return 1
+		return nil, err
 	}
-	n := 0
+	var others []int
 	for _, io := range ios {
-		if io["rdm"] == true && numOr(io, "rdm_universe", -1) == int(pa) {
-			n++
+		p := numOr(io, "port_number", -1) + 1
+		if p != port && io["rdm"] == true && numOr(io, "rdm_universe", -1) == int(pa) {
+			others = append(others, p)
 		}
 	}
-	return max(n, 1)
+	return others, nil
 }
 
-// portTable picks this port's devices from the tables the node sent. When no
-// other port has RDM on at the address, the table is the port's own. Otherwise
-// BindIndex does not say which port sent which (see artnet.TodTables), so the
-// node's own list for the port decides: a table that shares a device with it is
-// this port's, and one that shares none belongs to another port.
-func portTable(ip string, port, ports int, tables []artnet.TodTable, listed []string, haveList bool) []artnet.UID {
-	if ports <= 1 && len(tables) == 1 {
-		return tables[0].UIDs
+// soloPortFixtures is the port's devices when no other port shares its address:
+// every table is its own, plus anything the node lists over HTTP that the
+// Art-Net table did not give, so a Read never shows fewer than the node has found.
+func soloPortFixtures(ip string, port int, tables []artnet.TodTable) []artnet.UID {
+	uids := mergeTables(tables)
+	rest, err := connectedUIDs(ip, port)
+	if err != nil {
+		return uids
 	}
-	if !haveList {
-		luminex.Warnf("RDM port %d on %s: %d tables answered and the node's list for the port could not be read; showing them all", port, ip, len(tables))
-		return mergeTables(tables)
+	rdmStoreCount(ip, port, len(rest))
+	seen := map[artnet.UID]bool{}
+	for _, u := range uids {
+		seen[u] = true
 	}
-	var mine []artnet.TodTable
-	for _, t := range tables {
-		if overlaps(t.UIDs, listed) {
-			mine = append(mine, t)
+	for _, s := range rest {
+		if u, perr := artnet.ParseUID(s); perr == nil && !seen[u] {
+			seen[u] = true
+			uids = append(uids, u)
 		}
 	}
-	luminex.Logf("RDM port %d on %s: %d ports on the address, %d tables, %d sharing devices with the node's list for the port (%d)", port, ip, ports, len(tables), len(mine), len(listed))
-	return mergeTables(mine)
+	return uids
 }
 
-func overlaps(uids []artnet.UID, listed []string) bool {
-	for _, s := range listed {
-		if u, err := artnet.ParseUID(s); err == nil {
-			for _, v := range uids {
-				if u == v {
-					return true
-				}
+// sharedPortFixtures picks this port's devices when other ports with RDM on
+// share its address. The node sends a table per port, but which table is which
+// cannot be told (see artnet.TodTables), and 1.7.0, matching tables to the
+// node's list by one shared device, showed both ports' fixtures on port 10 of
+// LumiNode 12 - 5, and an address went to a fixture on port 9 (19 Nov 2026). So
+// the node's own list for each port decides: a device is this port's only when
+// the node lists it here and on no other port at the address. A device in the
+// Art-Net tables that the node lists on no port is left out and noted.
+func sharedPortFixtures(ip string, port int, others []int, tables []artnet.TodTable) ([]artnet.UID, string, error) {
+	lists, err := portLists(ip, append([]int{port}, others...))
+	if err != nil {
+		return nil, "", err
+	}
+	rdmStoreCount(ip, port, len(lists[port].order))
+	owner := map[artnet.UID][]int{}
+	for _, p := range append([]int{port}, others...) {
+		for _, u := range lists[p].order {
+			owner[u] = append(owner[u], p)
+		}
+	}
+	var uids []artnet.UID
+	var notes []string
+	for _, u := range lists[port].order {
+		if ps := owner[u]; len(ps) > 1 {
+			luminex.Warnf("RDM port %d on %s: the node lists %s on ports %v; left out", port, ip, u, ps)
+			notes = append(notes, fmt.Sprintf("%s is listed by the node on ports %s, so it is not shown; Rediscover each port.", u, joinPorts(ps)))
+			continue
+		}
+		uids = append(uids, u)
+	}
+	unplaced := 0
+	for _, u := range mergeTables(tables) {
+		if len(owner[u]) == 0 {
+			unplaced++
+		}
+	}
+	luminex.Logf("RDM port %d on %s: shares its universe with port(s) %v; %d tables, %d listed here, %d on no port's list",
+		port, ip, others, len(tables), len(uids), unplaced)
+	if unplaced > 0 {
+		notes = append(notes, fmt.Sprintf("%d more fixture(s) answered on this universe that the node has not placed on a port. Ports %s share the universe, so only fixtures the node has found on this port are shown; Rediscover to place the rest.",
+			unplaced, joinPorts(append([]int{port}, others...))))
+	}
+	return uids, strings.Join(notes, " "), nil
+}
+
+// uidList is one port's devices as the node lists them, in its order.
+type uidList struct {
+	order []artnet.UID
+	set   map[artnet.UID]bool
+}
+
+// portLists reads the node's device list for each port.
+func portLists(ip string, ports []int) (map[int]uidList, error) {
+	out := map[int]uidList{}
+	for _, p := range ports {
+		raw, err := connectedUIDs(ip, p)
+		if err != nil {
+			return nil, fmt.Errorf("the node's RDM list for port %d could not be read, and without it fixtures on ports sharing a universe cannot be told apart: %w", p, err)
+		}
+		l := uidList{set: map[artnet.UID]bool{}}
+		for _, s := range raw {
+			if u, err := artnet.ParseUID(s); err == nil && !l.set[u] {
+				l.set[u] = true
+				l.order = append(l.order, u)
 			}
 		}
+		out[p] = l
 	}
-	return false
+	return out, nil
+}
+
+func joinPorts(ps []int) string {
+	s := make([]string, len(ps))
+	for i, p := range ps {
+		s[i] = strconv.Itoa(p)
+	}
+	if len(s) == 1 {
+		return s[0]
+	}
+	return strings.Join(s[:len(s)-1], ", ") + " and " + s[len(s)-1]
+}
+
+// checkFixturePort refuses an RDM SET to a device the node does not list on
+// this port, when other ports with RDM on share the port's address: the SET
+// goes out on every one of their lines, so the device that takes it could be on
+// another port (1.7.0 readdressed a fixture on port 9 from port 10's tab).
+func checkFixturePort(ip string, port int, pa artnet.PortAddress, u artnet.UID) error {
+	others, err := sharingPorts(ip, port, pa)
+	if err != nil {
+		return err
+	}
+	if len(others) == 0 {
+		return nil
+	}
+	lists, err := portLists(ip, append([]int{port}, others...))
+	if err != nil {
+		return fmt.Errorf("nothing sent: %w", err)
+	}
+	for _, o := range others {
+		if lists[o].set[u] {
+			return fmt.Errorf("nothing sent: the node lists %s on port %d, not port %d (ports %s are on the same universe, so it would answer from there); read port %d again",
+				u, o, port, joinPorts(append([]int{port}, others...)), port)
+		}
+	}
+	if !lists[port].set[u] {
+		return fmt.Errorf("nothing sent: the node does not list %s on port %d, and ports %s are on the same universe, so it may be on another port; Rediscover port %d",
+			u, port, joinPorts(append([]int{port}, others...)), port)
+	}
+	return nil
 }
 
 func mergeTables(tables []artnet.TodTable) []artnet.UID {
@@ -399,6 +493,9 @@ func editFixture(ip string, port int, uid string, e fixtureEdit) (rdmFixture, er
 	}
 	pa, err := rdmTarget(ip, port)
 	if err != nil {
+		return rdmFixture{}, err
+	}
+	if err := checkFixturePort(ip, port, pa, u); err != nil {
 		return rdmFixture{}, err
 	}
 	ctl, err := rdmController()

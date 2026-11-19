@@ -322,3 +322,22 @@ func TestTodTablesKeepsEachPortApart(t *testing.T) {
 		t.Errorf("short = %+v, %v", tables, err)
 	}
 }
+
+// Both ports' tables with the same BindIndex, as LumiNode 12 - 5 sent them for
+// ports 9 and 10 on U19 (19 Nov 2026): still two tables, not one merged.
+func TestTodTablesWithTheSameBindIndex(t *testing.T) {
+	a, b, d := testFixture(vortex, 1), testFixture(vortex+1, 11), testFixture(vortex+2, 21)
+	c, f := fakePair(t, map[PortAddress][]*FakeFixture{19: {d}})
+	f.Lock()
+	f.SharedPorts = map[PortAddress][][]*FakeFixture{19: {{a, b}}}
+	f.TodBinds = map[PortAddress][]int{19: {255, 255}}
+	f.Unlock()
+	start := time.Now()
+	tables, err := c.TodTables("127.0.0.1", 19, 2, time.Second)
+	if err != nil || len(tables) != 2 || len(tables[0].UIDs) != 2 || len(tables[1].UIDs) != 1 || tables[1].UIDs[0] != d.UID {
+		t.Errorf("tables = %+v, %v", tables, err)
+	}
+	if time.Since(start) > 500*time.Millisecond {
+		t.Errorf("waited for the timeout: %v", time.Since(start))
+	}
+}

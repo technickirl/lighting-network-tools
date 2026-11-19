@@ -330,6 +330,9 @@ func setFixtureParam(ip string, port int, uid string, pid uint16, value any) (rd
 	if err != nil {
 		return rdmSetting{}, err
 	}
+	if err := checkFixturePort(ip, port, r.pa, r.uid); err != nil {
+		return rdmSetting{}, err
+	}
 	var data []byte
 	var reread func() rdmSetting
 	if st, ok := findStandard(pid); ok {
@@ -440,6 +443,9 @@ func rereadAfter(r fixtureRef, wait time.Duration) (rdmFixture, error) {
 func fixtureAction(ip string, port int, uid string, action string, keepAddress bool) (f rdmFixture, note string, err error) {
 	r, err := openFixture(ip, port, uid)
 	if err != nil {
+		return rdmFixture{}, "", err
+	}
+	if err := checkFixturePort(ip, port, r.pa, r.uid); err != nil {
 		return rdmFixture{}, "", err
 	}
 	keep := 0 // the address to set back; 0: none

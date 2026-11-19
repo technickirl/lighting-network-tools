@@ -523,6 +523,74 @@ func TestRDMReadOfAPortSharingItsUniverse(t *testing.T) {
 	}
 }
 
+// LumiNode 12 - 5, ports 9 and 10 on U19 (19 Nov 2026): both tables came with
+// BindIndex 255, 1.7.0 merged them, port 10 showed port 9's fixtures too, and an
+// address meant for port 10 went to a fixture on port 9. Each port now shows only
+// what the node lists on it, and a SET from the wrong port is refused unsent.
+func TestRDMSharedUniverseWithTheSameBindIndex(t *testing.T) {
+	n, srv := newRDMNode(t)
+	n.ios[1]["rdm"], n.ios[1]["rdm_universe"] = true, float64(1)
+	n.ios[2]["io_type"], n.ios[2]["rdm"], n.ios[2]["rdm_universe"] = "output", true, float64(1)
+	c := &artnet.FakeFixture{UID: 0x4F75000DC201, Model: "Vortex 8S", Category: 0x0101, Start: 1, Personality: 1, Personalities: []artnet.FakePersonality{{Footprint: 10}}}
+	stray := &artnet.FakeFixture{UID: 0x4F75000DC2FF, Model: "Vortex 8S", Category: 0x0101, Start: 41, Personality: 1, Personalities: []artnet.FakePersonality{{Footprint: 10}}}
+	n.port2 = []string{"4F:75:00:0D:C2:01"}
+	n.fake.Lock()
+	n.fake.SharedPorts = map[artnet.PortAddress][][]*artnet.FakeFixture{1: {{c, stray}}} // stray: in the table, on no list
+	n.fake.TodBinds = map[artnet.PortAddress][]int{1: {255, 255}}
+	n.fake.Unlock()
+	read := func(port string) ([]string, string) {
+		code, out := rdmCall(t, srv, "GET", "/rdm/"+port+"/fixtures", "")
+		if code != 200 {
+			t.Fatalf("port %s: %d %v", port, code, out)
+		}
+		var got []string
+		for _, f := range out["fixtures"].([]any) {
+			got = append(got, f.(map[string]any)["uid"].(string))
+		}
+		note, _ := out["note"].(string)
+		return got, note
+	}
+	got, note := read("2")
+	if strings.Join(got, " ") != "4F75:000DC201" {
+		t.Errorf("port 2 = %v", got)
+	}
+	if !strings.Contains(note, "1 more fixture") {
+		t.Errorf("port 2 note = %q", note)
+	}
+	if got, _ := read("1"); strings.Join(got, " ") != "4F75:000DC113 4F75:000DC114" {
+		t.Errorf("port 1 = %v", got)
+	}
+
+	n.fake.Lock()
+	before := n.fake.Requests
+	n.fake.Unlock()
+	for _, uid := range []string{"4F75:000DC113", "4F75:000DC2FF"} { // port 1's, and on no list
+		code, out := rdmCall(t, srv, "POST", "/rdm/2/fixture/"+uid, `{"start":161}`)
+		if code == 200 || !strings.Contains(out["error"].(string), "nothing sent") {
+			t.Errorf("address %s from port 2: %d %v", uid, code, out)
+		}
+		code, out = rdmCall(t, srv, "POST", "/rdm/2/fixture/"+uid, `{"identify":true}`)
+		if code == 200 {
+			t.Errorf("identify %s from port 2: %d %v", uid, code, out)
+		}
+	}
+	n.fake.Lock()
+	sent := n.fake.Requests - before
+	n.fake.Unlock()
+	if sent != 0 {
+		t.Errorf("%d RDM requests went out for refused SETs", sent)
+	}
+	// Port 2's own fixture still takes it.
+	if code, out := rdmCall(t, srv, "POST", "/rdm/2/fixture/4F75:000DC201", `{"start":161}`); code != 200 {
+		t.Errorf("address port 2's own fixture: %d %v", code, out)
+	}
+	n.fake.Lock()
+	defer n.fake.Unlock()
+	if c.Start != 161 {
+		t.Errorf("port 2's fixture at %d", c.Start)
+	}
+}
+
 func TestRDMDiscoverySendsAJSONBody(t *testing.T) {
 	n, srv := newRDMNode(t)
 	n.ios[1]["rdm"], n.ios[1]["rdm_universe"] = true, float64(1)
