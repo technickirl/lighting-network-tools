@@ -194,6 +194,11 @@ its node to the new address.
   own and added its five from the node's list. Since 1.6.10 `artnet.TodTables` keeps the tables apart, waits for one per
   port with RDM on at that address, and the read keeps the tables that share a device with the node's own list for the
   port (`connected_devices`). RDM GET/SET to that address goes out on both lines; the fixture on either answers.
+  On LumiNode 12 - 5 (ports 9 and 10 on U19, 19 Nov 2026) **both tables came as BindIndex 255**, so 1.7.0 merged them:
+  port 10's read showed port 9's two fixtures beside its own, and an address SET from port 10's tab reached a fixture on
+  port 9. Since 1.7.2 `TodTables` also splits tables on a repeated block number, a read on a shared universe shows only
+  the devices the node lists on that port and on no other at the address (any other device in the tables is noted, not
+  shown), and every SET to a device the node does not list on the port is refused with nothing sent.
   The same day, live through the Commission build (Nick's OK): the node 8 RDM tab turned RDM on for port 1
   (one `PUT`), read the Vortex (personality "01: CCT-RGBW 8bit", 1 of 75, 10 ch at 1), the Fixtures view read
   all eight nodes and found it, and RDM off (one `PUT`) left the port streaming. No other write was sent.

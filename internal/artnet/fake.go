@@ -212,6 +212,13 @@ func (f *FakeNode) answer(pa PortAddress, m []byte) []byte {
 			fx = x
 		}
 	}
+	for _, line := range f.SharedPorts[pa] { // a real node sends it out on every line at the address
+		for _, x := range line {
+			if x.UID == dest {
+				fx = x
+			}
+		}
+	}
 	if fx == nil || fx.Silent || (cc != CCGet && cc != CCSet) {
 		return nil
 	}

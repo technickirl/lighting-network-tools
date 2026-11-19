@@ -208,9 +208,12 @@ type TodTable struct {
 // port's table apart. Two DMX ports fed from the same universe share a
 // port-address, and each answers with its own table (two ports on sACN U35, 13
 // Nov 2026). Their BindIndex is not the port number: LumiNode 12 - 7 (v2.9.1)
-// sent port 2's table as 2, and LumiNode 12 - 4 (v2.9.1, U33, 16 Nov 2026) sent
-// port 1's as 2 and port 2's as 255. A port with nothing on its line may send
-// none. It returns once want tables are complete, or after wait with what came.
+// sent port 2's table as 2, LumiNode 12 - 4 (v2.9.1, U33, 16 Nov 2026) sent
+// port 1's as 2 and port 2's as 255, and LumiNode 12 - 5 (U19, 19 Nov 2026) sent
+// both ports' as 255. So a table is also told apart by its blocks: a block
+// number it already has starts another table. A port with nothing on its line
+// may send none. It returns once want tables are complete, or after wait with
+// what came.
 func (c *Controller) TodTables(ip string, pa PortAddress, want int, wait time.Duration) ([]TodTable, error) {
 	ch, done := c.listen(ip, OpTodData)
 	defer done()
@@ -218,19 +221,20 @@ func (c *Controller) TodTables(ip string, pa PortAddress, want int, wait time.Du
 		return nil, err
 	}
 	type table struct {
-		seen  map[UID]bool
-		uids  []UID
-		total int
+		bind, port int
+		blocks     map[int]bool
+		seen       map[UID]bool
+		uids       []UID
+		total      int
 	}
-	tables := map[int]*table{}
-	var order []int
+	var tables []*table
 	result := func() ([]TodTable, error) {
-		if len(order) == 0 {
+		if len(tables) == 0 {
 			return nil, ErrNoTod
 		}
-		out := make([]TodTable, 0, len(order))
-		for _, k := range order {
-			out = append(out, TodTable{Bind: k, UIDs: tables[k].uids})
+		out := make([]TodTable, 0, len(tables))
+		for _, tb := range tables {
+			out = append(out, TodTable{Bind: tb.bind, UIDs: tb.uids})
 		}
 		return out, nil
 	}
@@ -241,16 +245,22 @@ func (c *Controller) TodTables(ip string, pa PortAddress, want int, wait time.Du
 			if err != nil || t.Address != pa {
 				continue
 			}
-			luminex.Logf("← Art-Net %s ArtTodData %s bind %d total %d block %d: %v", ip, pa, t.BindIndex, t.UIDTotal, t.BlockCount, t.UIDs)
+			luminex.Logf("← Art-Net %s ArtTodData %s bind %d port %d total %d block %d: %v", ip, pa, t.BindIndex, t.Port, t.UIDTotal, t.BlockCount, t.UIDs)
 			if t.Nak {
 				return nil, fmt.Errorf("the node refused the RDM device list request for %s", pa)
 			}
-			tb := tables[t.BindIndex]
-			if tb == nil {
-				tb = &table{seen: map[UID]bool{}}
-				tables[t.BindIndex] = tb
-				order = append(order, t.BindIndex)
+			var tb *table
+			for _, x := range tables {
+				if x.bind == t.BindIndex && x.port == t.Port && !x.blocks[t.BlockCount] {
+					tb = x
+					break
+				}
 			}
+			if tb == nil {
+				tb = &table{bind: t.BindIndex, port: t.Port, blocks: map[int]bool{}, seen: map[UID]bool{}}
+				tables = append(tables, tb)
+			}
+			tb.blocks[t.BlockCount] = true
 			tb.total = t.UIDTotal
 			for _, u := range t.UIDs {
 				if !tb.seen[u] {
@@ -259,8 +269,8 @@ func (c *Controller) TodTables(ip string, pa PortAddress, want int, wait time.Du
 				}
 			}
 			complete := 0
-			for _, k := range order {
-				if len(tables[k].uids) >= tables[k].total {
+			for _, x := range tables {
+				if len(x.uids) >= x.total {
 					complete++
 				}
 			}
