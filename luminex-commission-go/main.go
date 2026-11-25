@@ -21,6 +21,7 @@ import (
 	"github.com/technickirl/lighting-network-tools/internal/commission"
 	"github.com/technickirl/lighting-network-tools/internal/luminex"
 	"github.com/technickirl/lighting-network-tools/internal/nodeconfig"
+	"github.com/technickirl/lighting-network-tools/internal/sacn"
 	"io"
 	"net"
 	"net/http"
@@ -52,11 +53,13 @@ func openBrowser(url string) {
 const configurePath = "/configure/"
 
 // newMux puts the device list at / and the node configure page at /configure/.
+// The sACN view is a tab of the device list's page; its API is /api/sacn.
 func newMux(opts commission.Options) *http.ServeMux {
 	mux := http.NewServeMux()
 	opts.Version, opts.Title, opts.ConfigureURL = version, "Luminex Commission", configurePath
 	commission.Mount(mux, opts)
 	nodeconfig.Mount(mux, nodeconfig.Options{Locked: commission.Locked, Version: version})
+	sacn.Mount(mux)
 	page := http.StripPrefix(configurePath, http.FileServer(http.FS(nodeconfig.Assets())))
 	mux.HandleFunc(configurePath, func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Cache-Control", "no-store")
