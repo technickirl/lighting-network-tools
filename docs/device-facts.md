@@ -223,8 +223,8 @@ its node to the new address.
   as the `scanError` banner instead of "No Luminex devices found"; LumiNode
   Lite's `/api/discover` answers 502 with the text.
 - sACN from this tool's controller, on two LumiNode 4s (v2.9.1, ports 1-4 outputs on sACN U1-4, nothing else
-  sending) on 25 Nov 2026: universe 1 multicast at priority 100 and 40 Hz. Within 3 s `GET /api/dmx/ports` showed
-  port 1 of both nodes go from `activityState` `idle` to `streaming`, with `outputFrames` and `pipelineFrames`
+  sending) on 25 Nov 2026: universe 1 multicast at priority 100 and 40 Hz. Within 3 s the node's DMX port status (as the
+  Configure page's snapshot reads it) showed port 1 of both nodes go from `activityState` `idle` to `streaming`, with `outputFrames` and `pipelineFrames`
   counting; ports 2-4 stayed `idle`. `pipelineFrames` rose about 12 a second and stopped the moment the output
   stopped (three Stream_Terminated packets). `outputFrames` kept counting, and after the node's stream activity
   time (6 s here) the port read `streaming_continues`: it holds the last levels on the DMX line. The sACN view on
