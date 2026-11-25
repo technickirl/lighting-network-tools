@@ -478,8 +478,7 @@
   const baseRender = window.render;
   window.render = function () { baseRender(); drawStatus(); };
   document.getElementById('viewTabs').addEventListener('click', ev => {
-    const t = ev.target.closest('.view-tab');
-    if (t && t.dataset.view === 'groups' && !result) read();
+    if (currentView() === 'groups' && !result) read(); // app.js has already changed the view
   });
   draw();
   loadSaved();

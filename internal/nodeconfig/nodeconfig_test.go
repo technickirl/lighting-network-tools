@@ -40,7 +40,7 @@ func TestPageLoadsItsScriptAndStyles(t *testing.T) {
 		return string(b)
 	}
 	page := get("/node.html")
-	for _, want := range []string{`class="nc-main"`, `data-tab="processblocks"`, `id="btn-refresh"`, `id="toast"`} {
+	for _, want := range []string{`class="nc-main"`, `data-tab="advanced"`, `data-adv="processblocks"`, `id="btn-refresh"`, `id="toast"`} {
 		if !strings.Contains(page, want) {
 			t.Errorf("page has no %s", want)
 		}

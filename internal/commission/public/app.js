@@ -17,7 +17,7 @@ const els = {
 };
 
 const viewEls = {
-  tabs: $('viewTabs'), configure: $('configureView'), node: $('nodeView'), address: $('addressView'), groups: $('groupsView'), fixtures: $('fixturesView'), sacn: $('sacnView'), sacnout: $('sacnOutView'),
+  tabs: $('viewTabs'), subTabs: $('subTabs'), configure: $('configureView'), node: $('nodeView'), address: $('addressView'), groups: $('groupsView'), fixtures: $('fixturesView'), sacn: $('sacnView'), sacnout: $('sacnOutView'),
   list: $('configureList'), status: $('configScanStatus'), scan: $('btnScanConfigure'), log: $('configLog'),
 };
 
@@ -375,15 +375,29 @@ function onConfigureClick(ev) {
 }
 
 // ─── Views ──────────────────────────────────────────────────────────────────
-// A tool with a configure page opens on the Configure view, which has no ticks,
+// A tool with a configure page opens on Devices, All devices, which has no ticks,
 // no Apply and no Factory reset, so a running system cannot be re-addressed from
-// it by a stray click. A reload stays on the same view; a new tab starts on Configure.
+// it by a stray click. A reload stays on the same view; a new tab starts on it
+// (Devices, All devices).
+// Four views. Devices and sACN have parts, each one of the older views; the page
+// remembers the part each was on.
+const VIEW_GROUPS = { devices: ['configure', 'address', 'groups'], node: ['node'], fixtures: ['fixtures'], sacn: ['sacn', 'sacnout'] };
+const groupOf = v => Object.keys(VIEW_GROUPS).find(g => VIEW_GROUPS[g].includes(v)) || 'devices';
 let view = 'configure';
-try { const v = sessionStorage.getItem('commission.view'); view = ['node', 'address', 'groups', 'fixtures', 'sacn', 'sacnout'].includes(v) ? v : 'configure'; } catch {}
-function setView(v) { view = v; try { sessionStorage.setItem('commission.view', v); } catch {} }
+let groupPart = {}; // group → the part it was last on
+try {
+  const v = sessionStorage.getItem('commission.view');
+  if (Object.values(VIEW_GROUPS).flat().includes(v)) view = v;
+  groupPart = JSON.parse(sessionStorage.getItem('commission.parts') || '{}') || {};
+} catch {}
+function setView(v) {
+  view = v;
+  groupPart[groupOf(v)] = v;
+  try { sessionStorage.setItem('commission.view', v); sessionStorage.setItem('commission.parts', JSON.stringify(groupPart)); } catch {}
+}
 function currentView() { return state.configureUrl ? view : 'address'; }
 function renderView() {
-  const v = currentView();
+  const v = currentView(), g = groupOf(v);
   viewEls.tabs.classList.toggle('hidden', !state.configureUrl);
   viewEls.configure.classList.toggle('hidden', v !== 'configure');
   viewEls.node.classList.toggle('hidden', v !== 'node');
@@ -396,12 +410,18 @@ function renderView() {
   if (typeof sacnShown === 'function') sacnShown(v === 'sacn');
   viewEls.sacnout.classList.toggle('hidden', v !== 'sacnout');
   if (typeof sacnOutShown === 'function') sacnOutShown(v === 'sacnout');
-  for (const t of viewEls.tabs.querySelectorAll('.view-tab')) t.classList.toggle('active', t.dataset.view === v);
+  for (const t of viewEls.tabs.querySelectorAll('.view-tab')) t.classList.toggle('active', t.dataset.group === g);
+  for (const t of viewEls.tabs.querySelectorAll('.sub-tab')) {
+    t.classList.toggle('hidden', t.dataset.in !== g);
+    t.classList.toggle('active', t.dataset.view === v);
+  }
+  viewEls.subTabs.classList.toggle('hidden', VIEW_GROUPS[g].length < 2);
 }
 viewEls.tabs.addEventListener('click', ev => {
-  const t = ev.target.closest('.view-tab');
+  const t = ev.target.closest('.view-tab, .sub-tab');
   if (!t) return;
-  setView(t.dataset.view);
+  const parts = VIEW_GROUPS[t.dataset.group] || [];
+  setView(t.dataset.view || (parts.includes(groupPart[t.dataset.group]) ? groupPart[t.dataset.group] : parts[0]));
   render();
 });
 

@@ -107,7 +107,7 @@ function renderNode() {
     : nodeOpen ? ''
     : list.length ? '› Pick a node.'
     : state.scanning ? '› Scanning the network…'
-    : '› No LumiNode found yet. Scan on the Configure tab.';
+    : '› No LumiNode found yet. Scan on Devices.';
   nodeEls.hint.classList.toggle('hidden', !nodeEls.hint.textContent);
   nodeEls.host.classList.toggle('hidden', !nodeOpen || !!nodePageError);
 }

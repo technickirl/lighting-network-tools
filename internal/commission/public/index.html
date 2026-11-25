@@ -19,14 +19,21 @@
     <div id="banner" class="banner hidden"></div>
 
     <!-- Only in a tool with a configure page; without one the address view is all there is. -->
-    <div id="viewTabs" class="view-tabs hidden">
-      <button class="view-tab" data-view="configure">Configure</button>
-      <button class="view-tab" data-view="node">Node</button>
-      <button class="view-tab" data-view="address">Address &amp; reset</button>
-      <button class="view-tab" data-view="groups">Groups</button>
-      <button class="view-tab" data-view="fixtures">Fixtures</button>
-      <button class="view-tab" data-view="sacn">sACN view</button>
-      <button class="view-tab" data-view="sacnout">sACN control</button>
+    <div id="viewTabs" class="hidden">
+      <div class="view-tabs">
+        <button class="view-tab" data-group="devices">Devices</button>
+        <button class="view-tab" data-group="node">Node</button>
+        <button class="view-tab" data-group="fixtures">Fixtures</button>
+        <button class="view-tab" data-group="sacn">sACN</button>
+      </div>
+      <!-- The parts of Devices and of sACN. All devices comes first: it has no ticks, no Apply and no Factory reset. -->
+      <div id="subTabs" class="sub-tabs">
+        <button class="sub-tab" data-view="configure" data-in="devices">All devices</button>
+        <button class="sub-tab" data-view="address" data-in="devices">Address &amp; reset</button>
+        <button class="sub-tab" data-view="groups" data-in="devices">Groups</button>
+        <button class="sub-tab" data-view="sacn" data-in="sacn">View</button>
+        <button class="sub-tab" data-view="sacnout" data-in="sacn">Control</button>
+      </div>
     </div>
 
     <!-- For a system that is already addressed: nothing in this view changes an address. -->
@@ -85,7 +92,7 @@
 
     <!-- sACN viewer: listens only. Joining a universe's multicast group is the only thing it sends. -->
     <section id="sacnView" class="step-card hidden">
-      <div class="step-head">sACN view <span id="sacnStatus" class="muted"></span></div>
+      <div class="step-head">sACN: what is arriving <span id="sacnStatus" class="muted"></span></div>
       <div class="step-body">
         <div class="muted groups-help">Shows the levels arriving on each sACN universe and who is sending them. It only listens: nothing here changes a level or a device. Universes that a console announces are added by themselves; type any others.</div>
         <div class="sacn-watch">
@@ -103,7 +110,7 @@
 
     <!-- sACN controller: this tool as a source. Nothing is sent until Start output. -->
     <section id="sacnOutView" class="step-card hidden">
-      <div class="step-head">sACN control <span id="soStatus" class="muted"></span></div>
+      <div class="step-head">sACN: send from this tool <span id="soStatus" class="muted"></span></div>
       <div class="step-body">
         <div class="muted groups-help">A small sACN source for testing a rig without a console: patch fixtures, set levels, then <strong>Start output</strong>. Nothing is sent until then, and it never starts by itself. While it is sending, any node listening to these universes puts the levels on its outputs.</div>
         <div id="soBar" class="so-bar">

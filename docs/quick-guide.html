@@ -29,12 +29,10 @@
 <h2>What it does</h2>
 <p>Luminex Commission is one app, run on a laptop on the wired show network, that finds every LumiNode, LumiCore and GigaCore on the network and lets you address, name, reset and configure them, read and set RDM fixtures through the nodes, watch the sACN on the network and send a little of its own for testing. It serves its own page in your browser at <code>http://localhost:3800</code>; nothing is installed and no internet is needed.</p>
 <table><thead><tr><th>View</th><th>Use it for</th></tr></thead><tbody>
-<tr><td>Configure</td><td>Changing a node on a system that is already addressed: profiles, Quick Setup, DMX ports, IOs, process blocks, RDM. Nothing here can re-address the rig.</td></tr>
-<tr><td>Address &amp; reset</td><td>Commissioning: numbering plan, addresses, names, LED, factory reset.</td></tr>
-<tr><td>Groups</td><td>GigaCore Gen1 groups (VLANs): read, rename, and apply group profiles.</td></tr>
+<tr><td>Devices</td><td>Three parts. <strong>All devices</strong>: the list, with Configure on each node; nothing here can re-address the rig. <strong>Address &amp; reset</strong>: commissioning (numbering plan, addresses, names, LED, factory reset). <strong>Groups</strong>: GigaCore Gen1 groups (VLANs).</td></tr>
+<tr><td>Node</td><td>One node at a time, with a chip per node to switch: profiles, Quick Setup, RDM, name and address, and the advanced routing views.</td></tr>
 <tr><td>Fixtures</td><td>Every RDM fixture on every node, by DMX address, with clashes in red.</td></tr>
-<tr><td>sACN view</td><td>The levels arriving on each sACN universe and who is sending them. It only listens.</td></tr>
-<tr><td>sACN control</td><td>A small sACN source for testing a rig without a console: fixtures, channels, profiles.</td></tr>
+<tr><td>sACN</td><td>Two parts. <strong>View</strong>: the levels arriving on each sACN universe and who is sending them; it only listens. <strong>Control</strong>: a small sACN source for testing a rig without a console.</td></tr>
 </tbody></table>
 </section>
 
@@ -60,7 +58,7 @@
 </section>
 
 <section>
-<h2>Addressing and naming (Address &amp; reset)</h2>
+<h2>Addressing and naming (Devices, Address &amp; reset)</h2>
 <p>Every address is <code>&lt;network&gt;.&lt;third octet&gt;.&lt;n&gt;</code>, where you pick the first two octets in the <strong>Network</strong> box and a third octet per device type in the numbering table.</p>
 <ol>
 <li><p><span style="white-space:pre-wrap"><strong>Simple</strong> <strong>Numbering</strong>: <em>One 4th octet per batch</em> (no cabling needed: every ticked device gets the same last octet on its type's third octet, then it steps on for the next batch) </span></p></li>
@@ -77,13 +75,11 @@
 <p><strong>Configure</strong> on a node's row opens it on the <strong>Node</strong> tab of the same page. It follows the node if its address changes and locks its write buttons while a job runs on it.</p>
 <p>The <strong>chips</strong> along the top of the Node tab are every LumiNode in the device list, with the open one highlighted. Click a chip to switch to that node; you stay on the same tab (RDM, say). A chip is disabled, with the reason in its tooltip, for a node this computer cannot reach.</p>
 <table><thead><tr><th>Tab</th><th>What you do there</th></tr></thead><tbody>
+<tr><td>Device</td><td>What the node is, Identify and Reboot, and its name, address, mask and gateway; an address change runs as a confirmed job. The node opens here.</td></tr>
 <tr><td>Quick Setup</td><td>Set one sACN universe per DMX port and apply all ports in one step (reroute mode).</td></tr>
 <tr><td>Profiles</td><td>Recall or save a profile on the node.</td></tr>
-<tr><td>Process / IOs</td><td>See and edit process blocks (merge, backup, crossfade) and the sACN, Art-Net and DMX IOs feeding them.</td></tr>
-<tr><td>DMX</td><td>Live state of each DMX port.</td></tr>
-<tr><td>RDM</td><td>Turn RDM on per port, read and set fixtures (next section).</td></tr>
-<tr><td>Network</td><td>Address, mask and gateway; an address change runs as a confirmed job.</td></tr>
-<tr><td>Startup</td><td>Startup buffers.</td></tr>
+<tr><td>RDM</td><td>Tick RDM on per port, read and set fixtures (next section).</td></tr>
+<tr><td>Advanced</td><td>Process blocks (merge, backup, crossfade), the sACN, Art-Net and DMX IOs feeding them, the live state of each DMX port, and startup buffers.</td></tr>
 </tbody></table>
 <p><strong>Quick Setup</strong> is the fastest way to patch a node: each DMX port gets one universe straight through. The tab shows a field per port, filled with the universe it takes now; type the universes you want and press <strong>Apply</strong>, which sends at once. Each port you fill has its process block rebuilt as a simple reroute (input to port, named <code>Port 1 U101</code> and so on), so any merge, backup or startup buffer on that block is replaced; leave a field blank to leave that port alone. The protocol stays what the port already uses, sACN or Art-Net (the label above the field says which), and a new sACN input comes in at priority 100.</p>
 <p>A node that has changed address may show its active profile as <em>None</em> afterwards; its blocks and IOs are unchanged.</p>
@@ -93,7 +89,7 @@
 <h2>RDM</h2>
 <p>RDM runs from the laptop over Art-Net through each node, and works on ports fed by sACN with no change to the port.</p>
 <ol>
-<li><p>On the node's <strong>RDM</strong> tab, <strong>Turn RDM on…</strong> for a port and confirm in the page. DMX keeps flowing, though some older fixtures flicker during discovery.</p></li>
+<li><p>On the node's <strong>RDM</strong> tab, tick <strong>RDM</strong> on a port and confirm in the page (untick to turn it off). DMX keeps flowing, though some older fixtures flicker during discovery.</p></li>
 <li><p>Wait for <em>Searching… n found</em> to settle (about 10 to 15 s for a line of 15 to 20 fixtures). The port is then read and shown as tiles; <strong>TABLE</strong> switches to a table.</p></li>
 <li><p>Fixtures that were still powering up are missed: press <strong>Rediscover</strong> to search again.</p></li>
 </ol>
@@ -109,7 +105,7 @@
 </section>
 
 <section>
-<h2>sACN view</h2>
+<h2>sACN: View</h2>
 <p>Shows what is arriving on each sACN universe. It only listens: nothing in this view changes a level or a device.</p>
 <ul>
 <li><p>Type the <strong>universes to listen to</strong>, for example <code>1-8, 33</code>, and press <strong>Listen</strong>. The list is remembered. Universes a console announces are added by themselves.</p></li>
@@ -120,7 +116,7 @@
 </section>
 
 <section>
-<h2>sACN control</h2>
+<h2>sACN: Control</h2>
 <p>Makes the laptop a small sACN source, for testing a rig without a console. <strong>Nothing is sent until you press Start output, and it never starts by itself.</strong> While it is sending, every node listening to those universes puts the levels on its DMX outputs, so treat Start like bringing up a fader on a desk.</p>
 <ol>
 <li><p>Choose the network connection to send <strong>From</strong> (the wired show port, not Wi-Fi). Priority is 100 unless you change it.</p></li>
@@ -169,8 +165,8 @@
 <tr><td>Fixtures overlap after a factory reset</td><td>The reset kept the addresses but put each fixture back on its factory mode, which can have a different footprint: tick them and use <strong>READDRESS…</strong> to set the mode and respace them in one go.</td></tr>
 <tr><td>RDM finds fewer fixtures than are on the line</td><td>Fixtures were booting when RDM went on: <strong>Rediscover</strong>.</td></tr>
 <tr><td>No sACN after a reset</td><td>Nodes come back on the factory profile, Art-Net 0-11: recall an sACN profile. Quick Setup keeps each port's protocol, so it would stay on Art-Net.</td></tr>
-<tr><td>sACN view shows <em>Nothing arriving</em></td><td>The laptop must be on the sACN network (and in the same group or VLAN as the console). Not every console announces its universes, so type them.</td></tr>
-<tr><td>sACN control is sending but fixtures don't move</td><td>Check <strong>From</strong> is the wired show port, the node's port is on that universe, and no console is sending it at a higher priority (the banner says).</td></tr>
+<tr><td>sACN View shows <em>Nothing arriving</em></td><td>The laptop must be on the sACN network (and in the same group or VLAN as the console). Not every console announces its universes, so type them.</td></tr>
+<tr><td>sACN Control is sending but fixtures don't move</td><td>Check <strong>From</strong> is the wired show port, the node's port is on that universe, and no console is sending it at a higher priority (the banner says).</td></tr>
 <tr><td>Configure button greyed out</td><td>Hover for the reason: a switch, a device in a running job, or an address no adapter can reach.</td></tr>
 <tr><td>Page looks out of date after an update</td><td>It reloads itself on reconnect; otherwise hard-refresh (Ctrl/Cmd+Shift+R).</td></tr>
 </tbody></table>
