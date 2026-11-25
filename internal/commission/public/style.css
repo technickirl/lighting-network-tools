@@ -396,3 +396,56 @@ span.grp-cell { cursor: default; }
 .sacn-cell b { font: 600 12px var(--mono); color: var(--muted); }
 .sacn-cell.on b { color: #fff; }
 .sacn-cell.off { opacity: .45; }
+
+/* sACN control */
+.so-bar { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; padding: 10px 12px; border: 1px solid var(--border); border-radius: 4px; background: var(--raised); font-size: 12px; color: var(--muted); }
+.so-bar.so-live { border-color: var(--error); background: #1c0404; }
+.so-state { font: 600 12px var(--mono); letter-spacing: .08em; padding: 5px 10px; border-radius: 2px; border: 1px solid var(--border2); color: var(--muted); }
+.so-live .so-state { background: var(--error); border-color: var(--error); color: #fff; }
+.so-bar label, .so-form label { display: inline-flex; align-items: center; gap: 6px; }
+.so-bar input, .so-bar select, .so-form input[type=text], .so-form select, .so-editor input[type=text], .so-editor select { font: 13px var(--mono); padding: 6px 8px; border-radius: 4px; border: 1px solid var(--border2); background: var(--bg); color: var(--text); }
+.so-bar input:disabled, .so-bar select:disabled { opacity: .6; cursor: not-allowed; }
+#soPriority, .so-num { width: 64px; }
+#soName { width: 170px; }
+#soBanner { margin-top: 10px; }
+.so-tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--border); margin: 14px 0 12px; }
+.so-tab { font: 600 12px var(--sans); padding: 7px 14px; background: none; color: var(--muted); border: 0; border-bottom: 2px solid transparent; margin-bottom: -1px; cursor: pointer; }
+.so-tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+.so-form { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; font-size: 12px; color: var(--muted); margin-bottom: 8px; }
+.so-tiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 8px; margin-top: 12px; }
+.so-fx { background: var(--raised); border: 1px solid var(--border); border-radius: 4px; padding: 10px; display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.so-fx-bad { border-color: var(--error); }
+.so-fx-why { color: var(--error); font-size: 11px; }
+.so-fx-head { display: flex; align-items: center; gap: 8px; font-size: 13px; min-width: 0; }
+.so-fx-head b { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.so-fx-head .muted { white-space: nowrap; margin-left: auto; font-size: 11px; }
+.so-swatch { width: 16px; height: 16px; border-radius: 50%; border: 1px solid var(--border2); background: #000; flex: none; }
+.so-faders { display: flex; flex-direction: column; gap: 4px; }
+.so-ch { display: grid; grid-template-columns: 70px 1fr 30px; align-items: center; gap: 8px; font-size: 12px; }
+.so-ch span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; border-left: 3px solid var(--border2); padding-left: 6px; }
+.so-ch output, .so-val { font: 12px var(--mono); text-align: right; color: var(--text); min-width: 28px; }
+.so-ch input[type=range], #soRawLevel { width: 100%; accent-color: var(--accent); height: 22px; }
+#soRawLevel { width: 220px; }
+.so-fx-foot { display: flex; align-items: center; gap: 6px; }
+.so-t-dimmer span, .so-chip.so-t-dimmer { border-left-color: #e5e5e5; }
+.so-t-red span, .so-chip.so-t-red { border-left-color: #ef4444; }
+.so-t-green span, .so-chip.so-t-green { border-left-color: #22c55e; }
+.so-t-blue span, .so-chip.so-t-blue { border-left-color: #3b82f6; }
+.so-t-white span, .so-chip.so-t-white { border-left-color: #fff; }
+.so-t-amber span, .so-chip.so-t-amber { border-left-color: #f59e0b; }
+.so-t-lime span, .so-chip.so-t-lime { border-left-color: #a3e635; }
+.so-t-uv span, .so-chip.so-t-uv { border-left-color: #8b5cf6; }
+.so-t-warm span, .so-chip.so-t-warm { border-left-color: #fdba74; }
+.so-t-cool span, .so-chip.so-t-cool { border-left-color: #bfdbfe; }
+.so-chip { display: inline-block; font-size: 11px; padding: 1px 6px; margin: 1px 4px 1px 0; border-left: 3px solid var(--border2); background: var(--bg); border-radius: 2px; }
+.so-grid .sacn-cell { cursor: pointer; }
+.so-grid .sacn-cell.patched { border-color: #7c4a1d; }
+.so-grid .sacn-cell.sel { outline: 2px solid var(--info); outline-offset: -1px; }
+.so-profiles td, .so-edit-table td { white-space: normal; vertical-align: middle; }
+.so-actions { white-space: nowrap !important; text-align: right; }
+.so-chlist { max-width: 420px; }
+.so-editor { border: 1px solid var(--accent); border-radius: 4px; padding: 12px; margin: 10px 0; }
+.so-edit-table input[data-f=name] { width: 160px; }
+.so-folder { margin-top: 10px; }
+.so-profile-buttons { margin-top: 0; }
+.fx-patch { padding: 2px 8px; font-size: 11px; }

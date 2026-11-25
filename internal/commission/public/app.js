@@ -17,7 +17,7 @@ const els = {
 };
 
 const viewEls = {
-  tabs: $('viewTabs'), configure: $('configureView'), address: $('addressView'), groups: $('groupsView'), fixtures: $('fixturesView'), sacn: $('sacnView'),
+  tabs: $('viewTabs'), configure: $('configureView'), address: $('addressView'), groups: $('groupsView'), fixtures: $('fixturesView'), sacn: $('sacnView'), sacnout: $('sacnOutView'),
   list: $('configureList'), status: $('configScanStatus'), scan: $('btnScanConfigure'), log: $('configLog'),
 };
 
@@ -381,7 +381,7 @@ function onConfigureClick(ev) {
 // no Apply and no Factory reset, so a running system cannot be re-addressed from
 // it by a stray click. A reload stays on the same view; a new tab starts on Configure.
 let view = 'configure';
-try { const v = sessionStorage.getItem('commission.view'); view = ['address', 'groups', 'fixtures', 'sacn'].includes(v) ? v : 'configure'; } catch {}
+try { const v = sessionStorage.getItem('commission.view'); view = ['address', 'groups', 'fixtures', 'sacn', 'sacnout'].includes(v) ? v : 'configure'; } catch {}
 function currentView() { return state.configureUrl ? view : 'address'; }
 function renderView() {
   const v = currentView();
@@ -393,6 +393,8 @@ function renderView() {
   if (v === 'fixtures' && typeof renderFixtures === 'function') renderFixtures();
   viewEls.sacn.classList.toggle('hidden', v !== 'sacn');
   if (typeof sacnShown === 'function') sacnShown(v === 'sacn');
+  viewEls.sacnout.classList.toggle('hidden', v !== 'sacnout');
+  if (typeof sacnOutShown === 'function') sacnOutShown(v === 'sacnout');
   for (const t of viewEls.tabs.querySelectorAll('.view-tab')) t.classList.toggle('active', t.dataset.view === v);
 }
 viewEls.tabs.addEventListener('click', ev => {

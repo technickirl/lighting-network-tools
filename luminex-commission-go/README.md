@@ -82,6 +82,47 @@ software on the computer) the first time the view is opened.
 it is given `--multicast` or `--to`, which put levels on a real network. Checked against it only
 (25 Nov 2026): not yet tried with a real console or through a real switch.
 
+**sACN control** makes this tool a small sACN source, for testing a rig without a console.
+**Nothing is sent until Start output, and it never starts by itself**: every run begins with the
+output off and every level at zero. While it is sending, any node listening to those universes
+puts the levels on its DMX outputs, so treat Start like bringing up a fader on a desk.
+
+- The bar: the network connection to send from (chosen by the operator, never guessed; it is
+  remembered), the priority (0-200, default 100) and the source name, all fixed while sending.
+  **Stop output** tells receivers the source has stopped, so nodes go back to their other sources
+  at once; levels are kept. **Clear all levels** puts every fixture at its profile's defaults and
+  everything else at zero. If another source is heard on a universe this tool sends, a banner names
+  it and says who wins: the higher priority, or the higher level per channel when they are equal.
+- **Fixtures**: add fixtures to the patch (name, profile, universe, address, how many in a row;
+  names ending in a number count up). Each gets a tile with its dimmer (or all its channels when it
+  has no dimmer), Off and Full, and its other channels under More, where Remove is too. Two
+  fixtures cannot share a channel.
+- **Channels**: all 512 channels of any universe. Click to select (Shift-click for a range), then
+  the fader or 0 / 50% / Full. Setting a level on a universe with no fixtures adds it to the output;
+  **Stop sending this universe** takes it out again.
+- **Profiles**: a profile is a name and its channels in DMX order, each with a type (dimmer, red,
+  green, blue, white, amber, lime, uv, warm, cool, cct, pan, tilt, zoom, strobe, other) and a
+  default level. Nine plain ones are built in. **New profile** or **Copy** opens the editor;
+  **Export** saves one as a `.sacn-profile.json` file and **Import a profile file…** loads one, for
+  sharing between computers. On the Fixtures view, **Patch** on an RDM fixture adds it at its own
+  universe, address and channel count, with a profile named after its model and personality (plain
+  numbered channels, to be named in the editor once).
+- It sends up to 32 universes at 40 Hz each, multicast with a TTL of 1, and announces them
+  (universe discovery). The patch and the operator's profiles are kept in the user config folder
+  (`sacn-patch.json`, `sacn-profiles.json`) and so are shared with an iPad; levels are not kept.
+  Under `DRY_RUN=1` the output runs but nothing is sent. Quitting the tool while sending just stops
+  the packets, and receivers time out after 2.5 s.
+- `POST /api/sacn/out/start`, `/stop`, `/levels`, `/clear`, `/release`, `/fixtures/add`,
+  `/fixtures/remove`, `/profiles/save`, `/profiles/delete`; `GET /api/sacn/out` is the whole state.
+
+Sent to real nodes on 25 Nov 2026 (two LumiNode 4s, v2.9.1, ports on sACN U1-4): universe 1 at
+priority 100, all zeros, then channel 1 at 128 for ten seconds. Port 1 of both nodes went from
+`idle` to `streaming` within three seconds and stopped taking frames when the output stopped (see
+`../docs/device-facts.md`). That was driven through the API; the page's own buttons and the
+Fixtures, Profiles and Patch parts have only run in dry run, and nobody has yet watched a fixture
+respond. `SACN_LIVE_IFACE=<name> go test -run LiveLoopback ./internal/sacn` checks the sockets on
+a computer (all-zero levels on universe 63999).
+
 ## Using it from an iPad
 
 **Other devices** at the top of the right-hand column turns on access from another device on the
