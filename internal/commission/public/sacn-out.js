@@ -190,6 +190,20 @@ function soMain(f) { // the faders a tile always shows: its dimmers, or everythi
 function soPicked() { return so.fixtures.filter(f => soPick.has(f.id)).sort((a, b) => a.universe - b.universe || a.address - b.address); }
 function soMaster() { const p = soPicked(); return p.length > 1 ? p[0] : null; }
 
+// "Every N from M": the Mth fixture along the patch (universe, then address) and
+// every Nth after it. why says what stops it, for the button's tooltip.
+function soNth(n) { const t = n % 100; return n + (t > 10 && t < 14 ? 'th' : ['th', 'st', 'nd', 'rd'][n % 10] || 'th'); }
+function soEvery() {
+  const num = id => { const s = $(id).value.trim(); return /^\d+$/.test(s) ? parseInt(s, 10) : 0; };
+  const n = num('soEveryN'), from = num('soEveryFrom'), out = { n, from, ids: [], why: '' };
+  if (!so.fixtures.length) out.why = 'No fixtures patched';
+  else if (n < 1) out.why = 'Every needs a whole number, 1 or more';
+  else if (from < 1) out.why = 'From needs a whole number, 1 or more';
+  else if (from > so.fixtures.length) out.why = `There are only ${so.fixtures.length} fixtures, so none is the ${soNth(from)}`;
+  else out.ids = [...so.fixtures].sort((a, b) => a.universe - b.universe || a.address - b.address).filter((f, i) => i + 1 >= from && (i + 1 - from) % n === 0).map(f => f.id);
+  return out;
+}
+
 // The channel of fixture g that goes with channel i of fixture f: the same type,
 // counted the same way (the second "white" with the second "white"), so fixtures
 // of different profiles follow each other where they have the same kind of channel.
@@ -226,6 +240,9 @@ function soRenderTiles() {
   for (const [id, off, why] of [['btnSoPickAll', !so.fixtures.length || picked.length === so.fixtures.length, so.fixtures.length ? 'Every fixture is selected' : 'No fixtures patched'], ['btnSoPickNone', !picked.length, 'Nothing is selected']]) {
     $(id).disabled = off; $(id).title = off ? why : '';
   }
+  const ev = soEvery(), evBtn = $('btnSoPickEvery');
+  evBtn.disabled = !ev.ids.length;
+  evBtn.title = ev.why || `Select ${ev.ids.length} of the ${so.fixtures.length} fixtures: every ${soNth(ev.n)} one from the ${soNth(ev.from)}, in address order. This replaces the selection`;
   const rm = $('btnSoPickRemove');
   rm.disabled = !picked.length;
   rm.textContent = picked.length ? `Remove ${picked.length} selected` : 'Remove selected';
@@ -338,6 +355,8 @@ soEls.tiles.addEventListener('click', async ev => {
 });
 $('btnSoPickAll').addEventListener('click', () => { for (const f of so.fixtures) soPick.add(f.id); soRender(); });
 $('btnSoPickNone').addEventListener('click', () => { soPick.clear(); soRender(); });
+$('btnSoPickEvery').addEventListener('click', () => { const ev = soEvery(); if (!ev.ids.length) return; soPick.clear(); for (const id of ev.ids) soPick.add(id); soRender(); });
+for (const id of ['soEveryN', 'soEveryFrom']) $(id).addEventListener('input', () => soRender());
 $('btnSoPickRemove').addEventListener('click', async () => {
   const picked = soPicked();
   if (!picked.length) return;

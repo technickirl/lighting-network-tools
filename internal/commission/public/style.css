@@ -406,6 +406,7 @@ span.grp-cell { cursor: default; }
 .so-bar input, .so-bar select, .so-form input[type=text], .so-form select, .so-editor input[type=text], .so-editor select { font: 13px var(--mono); padding: 6px 8px; border-radius: 4px; border: 1px solid var(--border2); background: var(--bg); color: var(--text); }
 .so-bar input:disabled, .so-bar select:disabled { opacity: .6; cursor: not-allowed; }
 #soPriority, .so-num { width: 64px; }
+.so-form input.so-num-s { width: 44px; }
 #soName { width: 170px; }
 #soBanner { margin-top: 10px; }
 .so-tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--border); margin: 14px 0 12px; }

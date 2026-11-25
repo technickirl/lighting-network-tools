@@ -97,7 +97,9 @@ puts the levels on its DMX outputs, so treat Start like bringing up a fader on a
   names ending in a number count up). Each gets a tile with its dimmer (or all its channels when it
   has no dimmer), Off, Full, Highlight and Remove, and its other channels under More. **Remove
   selected**, beside Select all and Select none, takes every selected fixture off the patch at
-  once (Select all, then Remove selected, empties it); there is no confirmation.
+  once (Select all, then Remove selected, empties it); there is no confirmation. **Every N from
+  M** then **Select** replaces the selection with the Mth fixture along the patch (in address
+  order) and every Nth after it: every 2 from 1 is the odd ones, every 2 from 2 the even ones.
   Two fixtures cannot share a channel.
 - Click a fixture's name to select it. With two or more selected, the one at the lowest address
   (lowest universe first) is the **master**: its faders, Off, Full and Highlight move every
