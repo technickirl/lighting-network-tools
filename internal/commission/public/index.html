@@ -126,6 +126,10 @@
             <span id="soPickInfo" class="muted"></span><span class="spacer"></span>
             <button class="btn btn-small" id="btnSoPickAll" disabled>Select all</button>
             <button class="btn btn-small" id="btnSoPickNone" disabled>Select none</button>
+            <label title="The first fixture to select, counted along the patch in address order">Starting from <input type="text" inputmode="numeric" id="soEveryFrom" value="1" class="so-num so-num-s" autocomplete="off"></label>
+            <label title="Counted along the patch, in address order: starting from 1, every 2 is the 1st, 3rd, 5th… fixture">select every <input type="text" inputmode="numeric" id="soEveryN" value="2" class="so-num so-num-s" autocomplete="off"></label>
+            <button class="btn btn-small" id="btnSoPickEvery" disabled>Select</button>
+            <button class="btn btn-small btn-danger" id="btnSoPickRemove" disabled>Remove selected</button>
           </div>
           <div id="soTiles"></div>
         </div>
