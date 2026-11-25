@@ -40,6 +40,11 @@ Testing without hardware:
 node test-scripts/fake-device.js [--password secret]
 DEVICE_PORT=8080 go run ./luminex-commission-go
 
+# A pretend console for the sACN view: moving levels on universes 1-4, sent to
+# 127.0.0.1 only. --multicast puts them on the network, where any node listening
+# to those universes outputs them: never on a network with real fixtures.
+go run ./cmd/fakesacn
+
 # One fake LumiNode on :8081 with the process-block/IO API, and fake RDM fixtures
 # over Art-Net on UDP 6455 (the app holds 6454)
 go run ./cmd/fakenode
@@ -98,7 +103,9 @@ git tag -a v1.7.1 -m "..." && git push origin v1.7.1
   (`Mount`, `Start`). `internal/nodeconfig` is the Configure page's API, poller and
   page (`Mount`, `Assets`; RDM in `rdm.go`, its state shared by every page in
   `rdm_state.go`). `internal/artnet` is the Art-Net RDM controller (one per process,
-  it holds UDP 6454; `Shared`, and a fake node for tests). `luminex-commission-go` is
+  it holds UDP 6454; `Shared`, and a fake node for tests). `internal/sacn` is sACN: the E1.31
+  packets, the receiver behind the sACN view (one per process, opened the first time
+  the view asks, on UDP 5568) and its API (`Mount`). `luminex-commission-go` is
   only the `main` around them; a full-flow test in its `main_test.go` runs everything
   with no network at all.
 - The UI is vanilla JS rendering from a server state snapshot (SSE for the device

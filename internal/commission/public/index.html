@@ -24,6 +24,7 @@
       <button class="view-tab" data-view="address">Address &amp; reset</button>
       <button class="view-tab" data-view="groups">Groups</button>
       <button class="view-tab" data-view="fixtures">Fixtures</button>
+      <button class="view-tab" data-view="sacn">sACN view</button>
     </div>
 
     <!-- For a system that is already addressed: nothing in this view changes an address. -->
@@ -66,6 +67,24 @@
         </div>
         <div id="fixturesBanner" class="banner hidden"></div>
         <div id="fixturesList"></div>
+      </div>
+    </section>
+
+    <!-- sACN viewer: listens only. Joining a universe's multicast group is the only thing it sends. -->
+    <section id="sacnView" class="step-card hidden">
+      <div class="step-head">sACN view <span id="sacnStatus" class="muted"></span></div>
+      <div class="step-body">
+        <div class="muted groups-help">Shows the levels arriving on each sACN universe and who is sending them. It only listens: nothing here changes a level or a device. Universes that a console announces are added by themselves; type any others.</div>
+        <div class="sacn-watch">
+          <label for="sacnWatch">Universes to listen to</label>
+          <input type="text" id="sacnWatch" placeholder="1-8, 33" autocomplete="off" autocapitalize="off" spellcheck="false">
+          <button class="btn" id="btnSacnWatch" disabled title="Type a list of universes first">Listen</button>
+          <span class="spacer"></span>
+          <label class="fx-filter"><input type="checkbox" id="sacnPercent"> Levels in %</label>
+        </div>
+        <div id="sacnBanner" class="banner hidden"></div>
+        <div id="sacnUniverses"></div>
+        <div id="sacnDetail"></div>
       </div>
     </section>
 
@@ -209,6 +228,7 @@
 <script src="/settings.js"></script>
 <script src="/groups.js"></script>
 <script src="/fixtures.js"></script>
+<script src="/sacn.js"></script>
 <script src="/lan.js"></script>
 </body>
 </html>

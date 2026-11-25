@@ -57,6 +57,31 @@ and **Export CSV** saves everything read, UIDs included. RDM is turned on per po
 Configure page, RDM tab (see `../docs/configure-page.md`, "RDM"). Used on a real rig of eight LumiNode 12s on
 12 Nov 2026.
 
+**sACN view** shows what is arriving on each sACN universe: a tile per universe with its source
+and frame rate, and for the one clicked, all 512 levels (0-255, or **Levels in %**), updated eight
+times a second. It only listens. Nothing in this view changes a level or a device; the one thing it
+sends is the join for each universe's multicast group (an IGMP report), which is how a switch knows
+to pass that universe to this computer. It starts listening (UDP 5568, shared with other sACN
+software on the computer) the first time the view is opened.
+
+- **Universes to listen to** takes a list such as `1-8, 33` (up to 128 at once) and is remembered
+  between runs (`sacn.json` in the user config folder). Universes a source announces (E1.31
+  universe discovery, which not every console sends) are added by themselves, and so is anything
+  sent straight to this computer.
+- A universe's sources are listed by priority, each with its address, priority and rate.
+  **On the wire** is what a node would output: the highest priority wins, and where sources share
+  it each channel takes the highest level. Two sources at the same priority turn the tile amber,
+  since that is usually a mistake. Clicking a source shows that source alone; its tooltip has its
+  slot count, lost and late packets and CID.
+- A source that stops stays listed as lost for 30 seconds. Preview data is shown but never counts
+  as on the wire. Per-address priority (start code 0xDD) is noted, not applied.
+- On Linux a socket can join 20 groups unless `net.ipv4.igmp_max_memberships` is raised; a
+  universe that could not be joined says so on its tile.
+
+`go run ./cmd/fakesacn` is a pretend console for trying it. Its packets go to 127.0.0.1 unless
+it is given `--multicast` or `--to`, which put levels on a real network. Checked against it only
+(25 Nov 2026): not yet tried with a real console or through a real switch.
+
 ## Using it from an iPad
 
 **Other devices** at the top of the right-hand column turns on access from another device on the
