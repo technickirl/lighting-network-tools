@@ -23,7 +23,7 @@
 </head>
 <body>
 <h1>Luminex Commission – Quick User Guide</h1>
-<p class="byline">25 November 2026 · version 2.0.0 · Nick Malbon and Alex Mead</p>
+<p class="byline">25 November 2026 · version 2.0.1 · Nick Malbon and Alex Mead</p>
 
 <section>
 <h2>What it does</h2>
@@ -121,7 +121,7 @@
 <ol>
 <li><p>Choose the network connection to send <strong>From</strong> (the wired show port, not Wi-Fi). Priority is 100 unless you change it.</p></li>
 <li><p>Each universe in the output is a chip with a <strong>tick box</strong>: ticked universes are sent, unticked ones are left out with their patch and levels kept. <strong>Select all</strong> and <strong>Deselect all</strong> do them all; <strong>Add universe</strong> adds an empty one, sent at zero. Click a chip's name to show only its fixtures.</p></li>
-<li><p>On <strong>Fixtures</strong>, add fixtures to the patch: a name, a profile, universe, address and how many in a row. Or use <strong>Patch</strong> on a fixture in the Fixtures view, which takes its universe, address and channels from RDM.</p></li>
+<li><p>On <strong>Fixtures</strong>, add fixtures to the patch: a name, a profile, universe, address and how many in a row. Or use <strong>Patch</strong> on a fixture in the Fixtures view, which takes its universe, address and channels from RDM. <strong>Patch all</strong> there has a button per universe that patches every fixture read on it and says what it did. A fixture already in the patch is left alone, and a profile is only made when none fits.</p></li>
 <li><p>Press <strong>Start output</strong>. The bar turns red while sending. <strong>Stop output</strong> tells the nodes the source has gone, so they return to their other sources at once.</p></li>
 </ol>
 <ul>
@@ -129,7 +129,7 @@
 <li><p><strong>Highlight</strong> fades the fixture up over half a second so you can find it on the rig (dimmer 50%, red, green and blue full, cyan, magenta and yellow at zero); press it again to fade back to where it was.</p></li>
 <li><p><strong>Click fixture names</strong> to select several. The one at the lowest address becomes the <strong>MASTER</strong>: its faders and buttons move all of them. <strong>Starting from</strong> … <strong>select every</strong> … picks along the patch (from 1 every 2 is the odd ones), and <strong>Remove selected</strong> takes the selected fixtures off the patch at once.</p></li>
 <li><p><strong>Channels</strong> is all 512 channels of any universe: click (or Shift-click a range) to select, then use the fader or <strong>0</strong> / <strong>50%</strong> / <strong>Full</strong>.</p></li>
-<li><p><strong>Profiles</strong> lists the fixture types. Nine plain ones are built in; <strong>New profile</strong> or <strong>Copy</strong> opens the editor, where each channel has a name, a type, a default level and a highlight level. <strong>Export</strong> and <strong>Import</strong> move a profile between laptops as a file.</p></li>
+<li><p><strong>Profiles</strong> lists the fixture types. Nine plain ones are built in; <strong>New profile</strong> or <strong>Copy</strong> opens the editor, where each channel has a name, a type, a default level and a highlight level. Tick <strong>Fine</strong> on the channel after a coarse one to make the two a 16-bit pair: one fader on the tile, shown in percent. Pan and tilt default to 128, so a moving light starts centred. <strong>Export</strong> and <strong>Import</strong> move a profile between laptops as a file.</p></li>
 <li><p>If a console is sending the same universe, a banner names it and says who wins. <strong>Clear all levels</strong> puts everything back to zero (fixtures to their defaults).</p></li>
 </ul>
 </section>
