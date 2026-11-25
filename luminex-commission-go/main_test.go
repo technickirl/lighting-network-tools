@@ -34,6 +34,8 @@ func TestBothPagesAndAPIsOnOneServer(t *testing.T) {
 		{"/app.js", 200, "configureUrl"},
 		{"/fixtures.js", 200, "readAllFixtures"},
 		{"/sacn.js", 200, "function sacnShown"},
+		{"/sacn-out.js", 200, "function sacnOutShown"},
+		{"/", 200, `id="sacnOutView"`},
 		{"/", 200, `id="sacnView"`},
 		{"/api/sacn/universe/0", 400, "Universes run from 1"},
 		{"/configure/nodeconfig.js", 200, "function rdmLoad"},

@@ -11,6 +11,7 @@ serves a local web page and finds devices over mDNS (`_luminex._tcp`).
 - A Configure page per node: DMX ports, IOs, process blocks, Quick Setup, profiles.
 - RDM fixtures over Art-Net(even if port is set to sACN): read, set address / personality / label, readdress, factory reset.
 - An sACN view: the levels arriving on each universe, and which source is sending them.
+- A small sACN controller for testing a rig without a console: patched fixtures from simple profiles, or raw channels.
 - Use it from an iPad on the show network, behind a PIN.
 
 > **Unofficial.** This project is not made, endorsed or supported by Luminex Network
@@ -67,7 +68,7 @@ go run ./cmd/fakesacn                  # a pretend console: sACN on universes 1-
 | `internal/nodeconfig` | The Configure page: node API, live polling, RDM. |
 | `internal/luminex` | Shared: mDNS discovery, device classification, the device HTTP client, access from other devices. |
 | `internal/artnet` | Art-Net RDM controller. |
-| `internal/sacn` | sACN (E1.31): packets, the receiver behind the sACN view, its API. |
+| `internal/sacn` | sACN (E1.31): packets, the receiver behind the sACN view, the sender, profiles and patch behind sACN control, their API. |
 | `cmd/fakenode`, `cmd/fakesacn`, `test-scripts/` | Fake devices and a fake console for testing. Not shipped. |
 | `docs/` | Device calls and what real devices were seen to do; the quick guide. |
 

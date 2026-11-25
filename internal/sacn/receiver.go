@@ -62,6 +62,7 @@ type Receiver struct {
 	conn    *net.UDPConn
 	pc      *ipv4.PacketConn
 	manual  []uint16
+	also    func() []uint16         // more universes to join: the ones this tool sends
 	joined  map[uint16]map[int]bool // universe → interface index
 	joinErr map[uint16]string
 	unis    map[uint16]map[CID]*source
@@ -174,6 +175,11 @@ func (r *Receiver) wanted() map[uint16]bool {
 	want := map[uint16]bool{}
 	for _, u := range r.manual {
 		if len(want) < MaxWatched {
+			want[u] = true
+		}
+	}
+	if r.also != nil {
+		for _, u := range r.also() {
 			want[u] = true
 		}
 	}

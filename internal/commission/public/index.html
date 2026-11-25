@@ -25,6 +25,7 @@
       <button class="view-tab" data-view="groups">Groups</button>
       <button class="view-tab" data-view="fixtures">Fixtures</button>
       <button class="view-tab" data-view="sacn">sACN view</button>
+      <button class="view-tab" data-view="sacnout">sACN control</button>
     </div>
 
     <!-- For a system that is already addressed: nothing in this view changes an address. -->
@@ -66,6 +67,7 @@
           <label class="fx-filter"><input type="checkbox" id="fixturesClashesOnly"> Only fixtures with a problem</label>
         </div>
         <div id="fixturesBanner" class="banner hidden"></div>
+        <div id="fixturesNote" class="log-line"></div>
         <div id="fixturesList"></div>
       </div>
     </section>
@@ -85,6 +87,75 @@
         <div id="sacnBanner" class="banner hidden"></div>
         <div id="sacnUniverses"></div>
         <div id="sacnDetail"></div>
+      </div>
+    </section>
+
+    <!-- sACN controller: this tool as a source. Nothing is sent until Start output. -->
+    <section id="sacnOutView" class="step-card hidden">
+      <div class="step-head">sACN control <span id="soStatus" class="muted"></span></div>
+      <div class="step-body">
+        <div class="muted groups-help">A small sACN source for testing a rig without a console: patch fixtures, set levels, then <strong>Start output</strong>. Nothing is sent until then, and it never starts by itself. While it is sending, any node listening to these universes puts the levels on its outputs.</div>
+        <div id="soBar" class="so-bar">
+          <span id="soState" class="so-state">OUTPUT OFF</span>
+          <label>From <select id="soIface"></select></label>
+          <label>Priority <input type="text" inputmode="numeric" id="soPriority" value="100" autocomplete="off"></label>
+          <label>Name <input type="text" id="soName" maxlength="63" autocomplete="off"></label>
+          <span class="spacer"></span>
+          <button class="btn btn-primary" id="btnSoStart" disabled>Start output</button>
+          <button class="btn btn-danger" id="btnSoStop" disabled>Stop output</button>
+          <button class="btn" id="btnSoClear" disabled>Clear all levels</button>
+        </div>
+        <div id="soBanner" class="banner hidden"></div>
+        <div class="so-tabs">
+          <button class="so-tab" data-so="fixtures">Fixtures</button>
+          <button class="so-tab" data-so="channels">Channels</button>
+          <button class="so-tab" data-so="profiles">Profiles</button>
+        </div>
+
+        <div id="soFixtures">
+          <div class="so-form">
+            <label>Name <input type="text" id="soAddName" placeholder="Par 1" maxlength="60" autocomplete="off"></label>
+            <label>Profile <select id="soAddProfile"></select></label>
+            <label>Universe <input type="text" inputmode="numeric" id="soAddUniverse" value="1" class="so-num" autocomplete="off"></label>
+            <label>Address <input type="text" inputmode="numeric" id="soAddAddress" value="1" class="so-num" autocomplete="off"></label>
+            <label>How many <input type="text" inputmode="numeric" id="soAddCount" value="1" class="so-num" autocomplete="off"></label>
+            <button class="btn" id="btnSoAdd">Add to patch</button>
+          </div>
+          <div id="soAddNote" class="log-line"></div>
+          <div id="soTiles"></div>
+        </div>
+
+        <div id="soChannels" class="hidden">
+          <div class="so-form">
+            <label>Universe <input type="text" inputmode="numeric" id="soRawUniverse" value="1" class="so-num" autocomplete="off"></label>
+            <span id="soRawInfo" class="muted"></span>
+            <span class="spacer"></span>
+            <button class="btn btn-small" id="btnSoRelease" disabled>Stop sending this universe</button>
+          </div>
+          <div class="so-form">
+            <span id="soRawSel" class="muted">Click channels to select them (Shift-click for a range).</span>
+            <span class="spacer"></span>
+            <input type="range" id="soRawLevel" min="0" max="255" value="0" disabled>
+            <span id="soRawValue" class="so-val">0</span>
+            <button class="btn btn-small" id="btnSoRawZero" disabled>0</button>
+            <button class="btn btn-small" id="btnSoRawHalf" disabled>50%</button>
+            <button class="btn btn-small" id="btnSoRawFull" disabled>Full</button>
+            <button class="btn btn-small" id="btnSoRawNone" disabled>Select none</button>
+          </div>
+          <div id="soRawNote" class="log-line"></div>
+          <div id="soGrid" class="sacn-grid so-grid"></div>
+        </div>
+
+        <div id="soProfiles" class="hidden">
+          <div class="btn-row so-profile-buttons">
+            <button class="btn" id="btnSoNewProfile">New profile</button>
+            <button class="btn" id="btnSoImport">Import a profile file…</button>
+            <input type="file" id="soImportFile" accept=".json,application/json" class="hidden">
+          </div>
+          <div id="soProfileNote" class="log-line"></div>
+          <div id="soEditor"></div>
+          <div id="soProfileList"></div>
+        </div>
       </div>
     </section>
 
@@ -229,6 +300,7 @@
 <script src="/groups.js"></script>
 <script src="/fixtures.js"></script>
 <script src="/sacn.js"></script>
+<script src="/sacn-out.js"></script>
 <script src="/lan.js"></script>
 </body>
 </html>

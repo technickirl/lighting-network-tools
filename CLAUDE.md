@@ -22,6 +22,11 @@ asking the person running the rig first.** The tool honours `DRY_RUN=1`, which l
 the exact request instead of sending it; use that for any first run on real hardware.
 Reads (GET probes) still go out under DRY_RUN.
 
+**The sACN controller transmits levels**: with its output started, real nodes on those
+universes drive real fixtures. Never start it on a network with real devices without
+asking first; under `DRY_RUN=1` it runs but sends nothing, and its tests never touch
+the network (the one that does, `TestLiveLoopback`, runs only when asked for).
+
 ## Build, run, test
 
 ```bash
@@ -105,7 +110,8 @@ git tag -a v1.7.1 -m "..." && git push origin v1.7.1
   `rdm_state.go`). `internal/artnet` is the Art-Net RDM controller (one per process,
   it holds UDP 6454; `Shared`, and a fake node for tests). `internal/sacn` is sACN: the E1.31
   packets, the receiver behind the sACN view (one per process, opened the first time
-  the view asks, on UDP 5568) and its API (`Mount`). `luminex-commission-go` is
+  the view asks, on UDP 5568), the sender, fixture profiles and patch behind sACN
+  control (`output.go`), and their API (`Mount`). `luminex-commission-go` is
   only the `main` around them; a full-flow test in its `main_test.go` runs everything
   with no network at all.
 - The UI is vanilla JS rendering from a server state snapshot (SSE for the device

@@ -37,6 +37,10 @@ var settingsPath = func() string {
 
 type settings struct {
 	Watch string `json:"watch"`
+	// The output's last settings, offered again on the next run (it never starts by itself).
+	Interface string `json:"interface,omitempty"`
+	Priority  *int   `json:"priority,omitempty"`
+	Name      string `json:"name,omitempty"`
 }
 
 func loadSettings() settings {
@@ -80,6 +84,10 @@ func Shared() (*Receiver, error) {
 	if us, err := ParseUniverses(loadSettings().Watch); err == nil {
 		r.SetWatch(us)
 	}
+	// Listen on the universes this tool sends too, to see who else is on them.
+	r.mu.Lock()
+	r.also = out.sender.Universes
+	r.mu.Unlock()
 	luminex.Logf("sACN: listening on UDP %d", r.Port())
 	shared = r
 	return r, nil
@@ -99,8 +107,9 @@ func writeJSON(w http.ResponseWriter, code int, v any) {
 	_ = json.NewEncoder(w).Encode(v)
 }
 
-// Mount registers the sACN viewer's API on mux.
+// Mount registers the sACN viewer's and controller's API on mux.
 func Mount(mux *http.ServeMux) {
+	mountOutput(mux)
 	mux.HandleFunc("GET /api/sacn", func(w http.ResponseWriter, r *http.Request) {
 		rx, err := Shared()
 		if err != nil {
@@ -143,7 +152,9 @@ func Mount(mux *http.ServeMux) {
 			return
 		}
 		rx.SetWatch(us)
-		if err := saveSettings(settings{Watch: FormatUniverses(us)}); err != nil {
+		s := loadSettings()
+		s.Watch = FormatUniverses(us)
+		if err := saveSettings(s); err != nil {
 			luminex.Warnf("sACN: could not save the universe list: %v", err)
 		}
 		luminex.Logf("sACN: listening to universes %q", FormatUniverses(us))

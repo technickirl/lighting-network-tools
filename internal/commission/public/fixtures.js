@@ -6,7 +6,7 @@
 
 const fxEls = {
   view: $('fixturesView'), status: $('fixturesStatus'), body: $('fixturesList'), banner: $('fixturesBanner'),
-  read: $('btnReadFixtures'), csv: $('btnFixturesCsv'), clashes: $('fixturesClashesOnly'),
+  read: $('btnReadFixtures'), note: $('fixturesNote'), csv: $('btnFixturesCsv'), clashes: $('fixturesClashesOnly'),
 };
 
 // Per node: { name, ip, id, ports: [...], read: { port: result }, error, at }
@@ -82,13 +82,23 @@ function fxProblems(f, all) {
 
 function fxUniverse(u) { return u >= 0 ? `${u >> 8 & 0x7f}:${u >> 4 & 0xf}:${u & 0xf} (${u})` : 'none'; }
 
-function fxTable(fixtures, clashesOnly) {
+// The sACN universe a port outputs, for patching a fixture on sACN control: what
+// feeds the port when that is sACN, else the port's Art-Net number (the two match
+// on a LumiNode). 0 when there is none.
+function fxSacnUniverse(p) {
+  const m = /sACN U(\d+)/.exec(p.source || '');
+  return m ? Number(m[1]) : p.universe >= 1 ? p.universe : 0;
+}
+
+function fxTable(fixtures, clashesOnly, n, p) {
+  const p0 = p, universe = p0 ? fxSacnUniverse(p0) : 0;
   const problems = fixtures.map(f => fxProblems(f, fixtures));
   const shown = fixtures.map((f, i) => [f, problems[i]]).filter(([, p]) => !clashesOnly || p.length);
   if (!shown.length) return '';
   // A problem goes on its own line under the fixture: the view is too narrow for a note column.
   return `<table class="fx-table"><thead><tr><th>Addr</th><th>Ch</th><th>Personality</th><th>Manufacturer</th><th>Model</th><th>Label</th>
-    <th>Software</th><th>Sensors</th></tr></thead><tbody>` + shown.map(([f, p]) => {
+    <th>Software</th><th>Sensors</th><th></th></tr></thead><tbody>` + shown.map(([f, p]) => {
+    const noPatch = !n ? 'Read the fixtures first' : f.error ? 'This fixture did not answer' : f.start == null || !f.footprint ? 'It has no DMX address' : !universe ? 'This port has no sACN universe' : '';
     const end = f.start != null && f.footprint ? f.start + f.footprint - 1 : null;
     const pers = f.personality ? (f.personalityName ? `${esc(f.personalityName)} <span class="muted">${f.personality}/${f.personalities}</span>` : `${f.personality} of ${f.personalities}`) : '—';
     const cls = f.error ? 'fx-err' : p.length ? 'fx-clash' : '';
@@ -96,8 +106,9 @@ function fxTable(fixtures, clashesOnly) {
       <td class="fx-num fx-addr">${f.start != null ? f.start + (end > f.start ? `<span class="muted">–${end}</span>` : '') : '—'}</td>
       <td class="fx-num">${f.error && !f.footprint ? '—' : f.footprint}</td><td>${pers}</td>
       <td>${esc(f.manufacturer) || '—'}</td><td>${esc(f.model) || '—'}</td><td>${esc(f.label) || (f.error ? esc(f.uid) : '—')}</td>
-      <td>${esc(f.software) || '—'}</td><td class="fx-num">${f.error ? '—' : f.sensors}</td></tr>` +
-      (p.length ? `<tr class="${cls} fx-why-row"><td></td><td colspan="7" class="fx-why">${esc(p.join('. '))}</td></tr>` : '');
+      <td>${esc(f.software) || '—'}</td><td class="fx-num">${f.error ? '—' : f.sensors}</td>
+      <td><button class="btn fx-patch" data-patch-uid="${esc(f.uid)}" data-patch-node="${n ? esc(n.id) : ''}" data-patch-port="${p0 ? p0.port : ''}" ${noPatch ? `disabled title="${noPatch}"` : `title="Add it to the sACN control patch at universe ${universe}, address ${f.start} (${f.footprint} channels). Sends nothing."`}>Patch</button></td></tr>` +
+      (p.length ? `<tr class="${cls} fx-why-row"><td></td><td colspan="8" class="fx-why">${esc(p.join('. '))}</td></tr>` : '');
   }).join('') + '</tbody></table>';
 }
 
@@ -136,7 +147,7 @@ function renderFixtures() {
       if (!res) inner = '<div class="fx-note"><span class="spin">reading</span></div>';
       else if (res.error) inner = `<div class="fx-note fx-bad">${esc(res.error)}</div>`;
       else {
-        const t = fxTable(res.fixtures, clashesOnly);
+        const t = fxTable(res.fixtures, clashesOnly, n, p);
         if (clashesOnly && !t) return '';
         inner = (t || '<div class="fx-note">No fixtures answered on this port.</div>') +
           (res.source === 'overheard' ? `<div class="fx-note fx-warn">${esc(res.note)}</div>` : '');
@@ -173,3 +184,13 @@ fxEls.read.addEventListener('click', readAllFixtures);
 fxEls.csv.addEventListener('click', fixturesCsv);
 fxEls.clashes.addEventListener('change', renderFixtures);
 fxEls.body.addEventListener('click', onConfigureClick);
+fxEls.body.addEventListener('click', async ev => {
+  const b = ev.target.closest('[data-patch-uid]');
+  if (!b || b.disabled || typeof sacnPatchFromRdm !== 'function') return;
+  const n = fixtureNodes.find(x => x.id === b.dataset.patchNode);
+  const port = n && n.ports.find(x => String(x.port) === b.dataset.patchPort);
+  const f = n && port && n.read[port.port] && n.read[port.port].fixtures.find(x => x.uid === b.dataset.patchUid);
+  if (!f) return;
+  try { fxEls.note.textContent = '› ' + await sacnPatchFromRdm(f, fxSacnUniverse(port)); }
+  catch (e) { fxEls.note.textContent = '› Not patched: ' + e.message; }
+});
