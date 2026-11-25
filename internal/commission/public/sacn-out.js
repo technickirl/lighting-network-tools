@@ -226,6 +226,10 @@ function soRenderTiles() {
   for (const [id, off, why] of [['btnSoPickAll', !so.fixtures.length || picked.length === so.fixtures.length, so.fixtures.length ? 'Every fixture is selected' : 'No fixtures patched'], ['btnSoPickNone', !picked.length, 'Nothing is selected']]) {
     $(id).disabled = off; $(id).title = off ? why : '';
   }
+  const rm = $('btnSoPickRemove');
+  rm.disabled = !picked.length;
+  rm.textContent = picked.length ? `Remove ${picked.length} selected` : 'Remove selected';
+  rm.title = picked.length ? `Take the ${picked.length} selected fixture${picked.length === 1 ? '' : 's'} off the patch at once; their channels go to zero` : 'Select the fixtures to remove first (click their names, or Select all)';
   const sig = JSON.stringify([so.fixtures, [...soOpen], [...soPick]]);
   if (sig === soTilesSig) return;
   soTilesSig = sig;
@@ -249,8 +253,8 @@ function soRenderTiles() {
         <button class="btn btn-small" data-act="full" ${f.channels.length ? '' : 'disabled title="No profile"'}>Full</button>
         <button class="btn btn-small so-hl${f.highlight ? ' active' : ''}" data-act="highlight" ${f.canHighlight ? `title="${f.highlight ? 'Fade back to the levels it had before' : 'Fade to its highlight levels over half a second, to find it on the rig. Click again to put it back'}"` : 'disabled title="Its profile has no highlight levels: set them on Profiles"'}>Highlight</button>
         <span class="spacer"></span>
-        <button class="btn btn-small" data-act="more" title="${open ? 'Hide' : 'Show'} the other channels and Remove">${open ? 'Less ▴' : (rest.length ? `${rest.length} more ▾` : 'More ▾')}</button>
-        ${open ? `<button class="btn btn-small btn-danger" data-act="remove" title="Take this fixture off the patch at once; its channels go to zero">Remove</button>` : ''}
+        <button class="btn btn-small" data-act="more" ${rest.length ? `title="${open ? 'Hide' : 'Show'} its other channels"` : 'disabled title="All its channels are shown"'}>${open ? 'Less ▴' : (rest.length ? `${rest.length} more ▾` : 'More ▾')}</button>
+        <button class="btn btn-small btn-danger" data-act="remove" title="Take this fixture off the patch at once; its channels go to zero">Remove</button>
       </div></div>`;
   }).join('') + `</div>`;
 }
@@ -334,6 +338,15 @@ soEls.tiles.addEventListener('click', async ev => {
 });
 $('btnSoPickAll').addEventListener('click', () => { for (const f of so.fixtures) soPick.add(f.id); soRender(); });
 $('btnSoPickNone').addEventListener('click', () => { soPick.clear(); soRender(); });
+$('btnSoPickRemove').addEventListener('click', async () => {
+  const picked = soPicked();
+  if (!picked.length) return;
+  try {
+    for (const f of picked) soOpen.delete(f.id);
+    soApply(await soPost('fixtures/remove', { ids: picked.map(f => f.id) }));
+    soEls.addNote.textContent = `› Removed ${picked.length} fixture${picked.length === 1 ? '' : 's'}: ${picked.map(f => f.name).join(', ')}.`;
+  } catch (e) { soEls.addNote.textContent = '› ' + e.message; }
+});
 
 function soNum(el) { const s = el.value.trim(); return /^\d+$/.test(s) ? Number(s) : NaN; }
 

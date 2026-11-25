@@ -95,7 +95,9 @@ puts the levels on its DMX outputs, so treat Start like bringing up a fader on a
   it and says who wins: the higher priority, or the higher level per channel when they are equal.
 - **Fixtures**: add fixtures to the patch (name, profile, universe, address, how many in a row;
   names ending in a number count up). Each gets a tile with its dimmer (or all its channels when it
-  has no dimmer), Off, Full and Highlight, and its other channels under More, where Remove is too.
+  has no dimmer), Off, Full, Highlight and Remove, and its other channels under More. **Remove
+  selected**, beside Select all and Select none, takes every selected fixture off the patch at
+  once (Select all, then Remove selected, empties it); there is no confirmation.
   Two fixtures cannot share a channel.
 - Click a fixture's name to select it. With two or more selected, the one at the lowest address
   (lowest universe first) is the **master**: its faders, Off, Full and Highlight move every
