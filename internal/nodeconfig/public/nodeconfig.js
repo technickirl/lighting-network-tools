@@ -122,14 +122,19 @@ async function doConnect(addr) {
   nc$('btn-refresh').disabled = true;
   nc$('btn-identify').disabled = true;
   nc$('btn-reboot').disabled = true;
+  // Another node may be opened while this one is still answering (a chip is one
+  // click, and a node that is away takes 5 s to fail): only the node the page is
+  // on now may draw, or clear, the page.
   try {
     await loadNode(addr);
+    if (currentIp !== addr) return;
     setStatus('on');
     nc$('btn-refresh').disabled = false;
     nc$('btn-identify').disabled = false;
     nc$('btn-reboot').disabled = false;
     startWS(addr);
   } catch (e) {
+    if (currentIp !== addr) return;
     setStatus('err');
     clearDisplays();
     toast(`Cannot reach ${addr}: ${e.message}`, true);
@@ -149,6 +154,7 @@ async function reconnectWhenBack(addr) {
 
 async function loadNode(addr) {
   const d = await call(`/api/node/${addr}/snapshot`);
+  if (addr !== currentIp) return; // the page has moved to another node since this was asked
   lastSnap = d;
   if (d.device)        renderOverview(d.device, addr);
   if (d.processBlocks) renderProcessBlocks(d.processBlocks);
