@@ -38,6 +38,10 @@ type FakeFixture struct {
 	Restarts     int
 	AckTimerOnce bool // answer the first DEVICE_LABEL with ACK_TIMER, as a slow device would
 	Silent       bool // never answer RDM (a device that has gone)
+	// What each channel is, for SLOT_INFO, and its name for SLOT_DESCRIPTION.
+	// A fixture with no Slots does not know either request, like many real ones.
+	Slots     []Slot
+	SlotNames map[uint16]string
 
 	timerSent bool
 }
@@ -304,6 +308,21 @@ func (f *FakeNode) answer(pa PortAddress, m []byte) []byte {
 		resp.Data = binary.BigEndian.AppendUint16(nil, fx.Start)
 	case PIDDMXPersonality:
 		resp.Data = []byte{fx.Personality, uint8(len(fx.Personalities))}
+	case PIDSlotInfo:
+		if len(fx.Slots) == 0 {
+			return nack(0)
+		}
+		resp.Data = SlotInfoBytes(fx.Slots)
+	case PIDSlotDescription:
+		if len(data) < 2 || len(fx.Slots) == 0 {
+			return nack(0)
+		}
+		n := binary.BigEndian.Uint16(data)
+		name, ok := fx.SlotNames[n]
+		if !ok {
+			return nack(6)
+		}
+		resp.Data = append(binary.BigEndian.AppendUint16(nil, n), name...)
 	case PIDDMXPersonalityDescription:
 		if len(data) < 1 {
 			return nack(1)

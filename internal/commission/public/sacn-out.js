@@ -27,9 +27,11 @@ const soHold = new Map();      // "universe:address" → time until which the se
 const soQueue = new Map();     // universe → Map(address → level) waiting to be posted
 let soFlushTimer = null;
 const soOpen = new Set();      // fixture ids whose other channels are shown
+const soPick = new Set();      // selected fixture ids: the one at the lowest address is their master
 let soTilesSig = '', soProfilesSig = '', soIfaceSig = '', soProfileOptsSig = '', soGridSig = '';
 const soSel = new Set();       // selected addresses on the Channels tab
 let soSelLast = null;
+let soDragging = null;          // the fader being dragged
 let soDraft = null;            // the profile being edited: { was, name, channels: [{name,type,default}] }
 
 function sacnOutShown(on) {
@@ -183,14 +185,48 @@ function soMain(f) { // the faders a tile always shows: its dimmers, or everythi
   return d.length ? d : f.channels.map((c, i) => i);
 }
 
+// The selected fixtures in patch order (universe, then address), and their master:
+// the first of them, once two or more are selected.
+function soPicked() { return so.fixtures.filter(f => soPick.has(f.id)).sort((a, b) => a.universe - b.universe || a.address - b.address); }
+function soMaster() { const p = soPicked(); return p.length > 1 ? p[0] : null; }
+
+// The channel of fixture g that goes with channel i of fixture f: the same type,
+// counted the same way (the second "white" with the second "white"), so fixtures
+// of different profiles follow each other where they have the same kind of channel.
+function soMatch(f, i, g) {
+  const type = f.channels[i].type;
+  const nth = f.channels.slice(0, i).filter(c => c.type === type).length;
+  let seen = 0;
+  for (let j = 0; j < g.channels.length; j++) if (g.channels[j].type === type && seen++ === nth) return j;
+  return -1;
+}
+
+// Levels for a fixture, and for the others selected when it is their master.
+function soSetFixture(f, pairs) { // pairs: [channel index, level]
+  const master = soMaster(), byU = new Map();
+  const put = (g, i, v) => { if (!byU.has(g.universe)) byU.set(g.universe, []); byU.get(g.universe).push([g.address + i, v]); };
+  for (const [i, v] of pairs) {
+    put(f, i, v);
+    if (master && master.id === f.id) for (const g of soPicked()) { if (g.id === f.id) continue; const j = soMatch(f, i, g); if (j >= 0) put(g, j, v); }
+  }
+  for (const [u, list] of byU) soSet(u, list);
+}
+
 function soFader(f, i) {
   const c = f.channels[i], a = f.address + i;
   return `<label class="so-ch so-t-${esc(c.type)}"><span title="Address ${a}">${esc(c.name)}</span>
-    <input type="range" min="0" max="255" value="0" data-u="${f.universe}" data-a="${a}"><output>0</output></label>`;
+    <input type="range" min="0" max="255" value="0" data-u="${f.universe}" data-a="${a}" data-i="${i}"><output>0</output></label>`;
 }
 
 function soRenderTiles() {
-  const sig = JSON.stringify([so.fixtures, [...soOpen]]);
+  for (const id of [...soPick]) if (!so.fixtures.some(f => f.id === id)) soPick.delete(id);
+  const master = soMaster(), picked = soPicked();
+  $('soPickInfo').textContent = !so.fixtures.length ? '' : master ? `${picked.length} selected. ${master.name} has the lowest address, so its faders and buttons move them all.` :
+    picked.length ? '1 selected. Select another to move them together.' : 'Click a fixture\'s name to select it. With several selected, the one at the lowest address moves them all.';
+  for (const [id, off, why] of [['btnSoPickAll', !so.fixtures.length || picked.length === so.fixtures.length, so.fixtures.length ? 'Every fixture is selected' : 'No fixtures patched'], ['btnSoPickNone', !picked.length, 'Nothing is selected']]) {
+    $(id).disabled = off; $(id).title = off ? why : '';
+  }
+  const sig = JSON.stringify([so.fixtures, [...soOpen], [...soPick]]);
   if (sig === soTilesSig) return;
   soTilesSig = sig;
   if (!so.fixtures.length) {
@@ -201,14 +237,17 @@ function soRenderTiles() {
     const main = soMain(f), rest = f.channels.map((c, i) => i).filter(i => !main.includes(i));
     const open = soOpen.has(f.id);
     const end = f.address + Math.max(1, f.channels.length) - 1;
-    return `<div class="so-fx${f.problem ? ' so-fx-bad' : ''}" data-id="${f.id}">
-      <div class="so-fx-head"><span class="so-swatch"></span><b>${esc(f.name)}</b>
+    const sel = soPick.has(f.id), isMaster = master && master.id === f.id;
+    return `<div class="so-fx${f.problem ? ' so-fx-bad' : ''}${sel ? ' so-picked' : ''}${isMaster ? ' so-master' : ''}" data-id="${f.id}">
+      <div class="so-fx-head" data-act="pick" title="${sel ? 'Selected. Click to take it out of the selection' : 'Click to select'}"><span class="so-swatch"></span><b>${esc(f.name)}</b>
+        ${isMaster ? '<span class="so-badge">MASTER</span>' : sel && master ? `<span class="so-badge so-follow">follows ${esc(master.name)}</span>` : ''}
         <span class="muted">U${f.universe} · ${f.address}${end > f.address ? '–' + end : ''} · ${esc(f.profile)}</span></div>
       ${f.problem ? `<div class="so-fx-why">${esc(f.problem)}</div>` : ''}
       <div class="so-faders">${main.map(i => soFader(f, i)).join('')}${open ? rest.map(i => soFader(f, i)).join('') : ''}</div>
       <div class="so-fx-foot">
         <button class="btn btn-small" data-act="off" ${f.channels.length ? '' : 'disabled title="No profile"'}>Off</button>
         <button class="btn btn-small" data-act="full" ${f.channels.length ? '' : 'disabled title="No profile"'}>Full</button>
+        <button class="btn btn-small so-hl${f.highlight ? ' active' : ''}" data-act="highlight" ${f.canHighlight ? `title="${f.highlight ? 'Fade back to the levels it had before' : 'Fade to its highlight levels over half a second, to find it on the rig. Click again to put it back'}"` : 'disabled title="Its profile has no highlight levels: set them on Profiles"'}>Highlight</button>
         <span class="spacer"></span>
         <button class="btn btn-small" data-act="more" title="${open ? 'Hide' : 'Show'} the other channels and Remove">${open ? 'Less ▴' : (rest.length ? `${rest.length} more ▾` : 'More ▾')}</button>
         ${open ? `<button class="btn btn-small btn-danger" data-act="remove" title="Take this fixture off the patch at once; its channels go to zero">Remove</button>` : ''}
@@ -234,7 +273,8 @@ function soDrawLevels() {
   if (soTab === 'fixtures') {
     for (const el of soEls.tiles.querySelectorAll('input[type=range]')) {
       const v = soLevel(Number(el.dataset.u), Number(el.dataset.a));
-      if (Number(el.value) !== v && !soHold.has(el.dataset.u + ':' + el.dataset.a)) el.value = v;
+      // Only the fader under the finger is left alone, so the ones following a master move with it.
+      if (Number(el.value) !== v && el !== soDragging) el.value = v;
       el.nextElementSibling.textContent = el.value;
     }
     for (const tile of soEls.tiles.querySelectorAll('.so-fx')) {
@@ -254,26 +294,46 @@ function soDrawLevels() {
 soEls.tiles.addEventListener('input', ev => {
   const el = ev.target;
   if (el.type !== 'range') return;
-  soSet(Number(el.dataset.u), [[Number(el.dataset.a), Number(el.value)]]);
+  soDragging = el;
+  const f = so.fixtures.find(x => x.id === Number(el.closest('.so-fx').dataset.id));
+  if (f) soSetFixture(f, [[Number(el.dataset.i), Number(el.value)]]);
 });
+soEls.tiles.addEventListener('change', () => { soDragging = null; });
 soEls.tiles.addEventListener('click', async ev => {
   const b = ev.target.closest('[data-act]');
   if (!b || b.disabled) return;
   const id = Number(b.closest('.so-fx').dataset.id), f = so.fixtures.find(x => x.id === id);
   if (!f) return;
   const act = b.dataset.act;
+  if (act === 'pick') { soPick.has(id) ? soPick.delete(id) : soPick.add(id); soRender(); return; }
   if (act === 'more') { soOpen.has(id) ? soOpen.delete(id) : soOpen.add(id); soRender(); return; }
   if (act === 'remove') {
     try { soOpen.delete(id); soApply(await soPost('fixtures/remove', { ids: [id] })); soEls.addNote.textContent = `› Removed ${f.name}.`; }
     catch (e) { soEls.addNote.textContent = '› ' + e.message; }
     return;
   }
+  if (act === 'highlight') {
+    // The server does the fade; look more often while it runs so the faders follow.
+    try {
+      const m = soMaster(), on = !f.highlight;
+      for (const g of m && m.id === id ? soPicked() : [f]) if (g.canHighlight) soApply(await soPost('fixtures/highlight', { id: g.id, on }));
+      for (const ms of [150, 300, 450, 650]) setTimeout(soPoll, ms);
+    }
+    catch (e) { soEls.addNote.textContent = '› ' + e.message; }
+    return;
+  }
   // Full and Off move the dimmer; a fixture without one moves its colours.
-  let idx = f.channels.map((c, i) => i).filter(i => f.channels[i].type === 'dimmer');
-  if (!idx.length) idx = f.channels.map((c, i) => i).filter(i => SO_INTENSITY.includes(f.channels[i].type));
-  if (!idx.length) idx = f.channels.map((c, i) => i);
-  soSet(f.universe, idx.map(i => [f.address + i, act === 'full' ? 255 : 0]));
+  // Each fixture by its own channels, so a master with a dimmer still turns off one without.
+  const m = soMaster();
+  for (const g of m && m.id === id ? soPicked() : [f]) {
+    let idx = g.channels.map((c, i) => i).filter(i => g.channels[i].type === 'dimmer');
+    if (!idx.length) idx = g.channels.map((c, i) => i).filter(i => SO_INTENSITY.includes(g.channels[i].type));
+    if (!idx.length) idx = g.channels.map((c, i) => i);
+    soSet(g.universe, idx.map(i => [g.address + i, act === 'full' ? 255 : 0]));
+  }
 });
+$('btnSoPickAll').addEventListener('click', () => { for (const f of so.fixtures) soPick.add(f.id); soRender(); });
+$('btnSoPickNone').addEventListener('click', () => { soPick.clear(); soRender(); });
 
 function soNum(el) { const s = el.value.trim(); return /^\d+$/.test(s) ? Number(s) : NaN; }
 
@@ -293,16 +353,27 @@ soEls.add.addEventListener('click', soAdd);
 
 // Called by the Fixtures view's Patch button: patch a fixture that RDM has read,
 // making a plain profile of the right size if none has its name yet.
-async function sacnPatchFromRdm(f, universe) {
+// slotsUrl is the fixture's /slots address on its node: where it says, over RDM, what
+// each channel is. Channels it describes get their type's usual highlight level from
+// the server (dimmer 50%, red, green and blue full, cyan, magenta and yellow zero).
+async function sacnPatchFromRdm(f, universe, slotsUrl) {
   if (!so) soApply(await fxCall('/api/sacn/out'));
   const profile = ([f.model, f.personalityName].filter(Boolean).join(' ') || `RDM fixture ${f.footprint} ch`).slice(0, 80);
+  let how = `the profile "${profile}", which was already saved`;
   if (!so.profiles.some(p => p.name.toLowerCase() === profile.toLowerCase())) {
-    const channels = Array.from({ length: f.footprint }, (x, i) => ({ name: `Ch ${i + 1}`, type: 'other', default: 0 }));
+    let channels = null;
+    try {
+      const d = slotsUrl ? await fxCall(slotsUrl) : null;
+      if (d && d.slots && d.slots.length === f.footprint) channels = d.slots.map(s => ({ name: s.name, type: so.types.includes(s.type) ? s.type : 'other', default: 0 }));
+    } catch { /* the fixture does not describe its channels */ }
+    how = channels ? `a new profile "${profile}", with its channels as the fixture describes them`
+      : `a new profile "${profile}". The fixture does not say what its channels are, so they are numbered and Highlight is off until you set them on sACN control, Profiles`;
+    channels = channels || Array.from({ length: f.footprint }, (x, i) => ({ name: `Ch ${i + 1}`, type: 'other', default: 0, highlight: -1 }));
     soApply(await soPost('profiles/save', { name: profile, channels }));
   }
   const name = (f.label || f.model || f.uid).slice(0, 60);
   soApply(await soPost('fixtures/add', { name, profile, universe, address: f.start, count: 1 }));
-  return `Patched ${name} at universe ${universe}, address ${f.start} with the profile "${profile}". Name its channels on sACN control, Profiles.`;
+  return `Patched ${name} at universe ${universe}, address ${f.start} with ${how}.`;
 }
 
 // ─── Channels ───────────────────────────────────────────────────────────────
@@ -393,11 +464,12 @@ function soDrawEditor() {
   soEls.editor.innerHTML = `<div class="so-editor">
     <div class="so-form"><label>Profile name <input type="text" id="soDraftName" value="${esc(d.name)}" maxlength="80" autocomplete="off"></label>
       <span class="muted">${d.was ? `Editing “${esc(d.was)}”. A new name saves a copy.` : 'New profile.'} Channels are in DMX order.</span></div>
-    <table class="fx-table so-edit-table"><thead><tr><th>#</th><th>Name</th><th>Type</th><th>Default</th><th></th></tr></thead><tbody>` +
+    <table class="fx-table so-edit-table"><thead><tr><th>#</th><th>Name</th><th>Type</th><th>Default</th><th title="The level Highlight fades this channel to. Empty leaves the channel where it is.">Highlight</th><th></th></tr></thead><tbody>` +
     d.channels.map((c, i) => `<tr data-i="${i}"><td class="fx-num">${i + 1}</td>
       <td><input type="text" data-f="name" value="${esc(c.name)}" maxlength="40" autocomplete="off"></td>
       <td><select data-f="type">${so.types.map(t => `<option${t === c.type ? ' selected' : ''}>${esc(t)}</option>`).join('')}</select></td>
       <td><input type="text" inputmode="numeric" data-f="default" value="${c.default}" class="so-num" autocomplete="off"></td>
+      <td><input type="text" inputmode="numeric" data-f="highlight" value="${c.highlight >= 0 ? c.highlight : ''}" placeholder="—" class="so-num" autocomplete="off" title="0-255, or empty to leave this channel alone"></td>
       <td class="so-actions"><button class="btn btn-small" data-act="up" ${i ? '' : 'disabled title="Already first"'}>↑</button>
         <button class="btn btn-small" data-act="down" ${i < d.channels.length - 1 ? '' : 'disabled title="Already last"'}>↓</button>
         <button class="btn btn-small" data-act="drop" ${d.channels.length > 1 ? '' : 'disabled title="A profile needs a channel"'}>Remove</button></td></tr>`).join('') +
@@ -406,9 +478,11 @@ function soDrawEditor() {
       <button class="btn" data-act="cancel">Cancel</button><button class="btn btn-primary" data-act="save">Save profile</button></div></div>`;
 }
 
+function soTypeHighlight(t) { return t === 'dimmer' ? 128 : ['red', 'green', 'blue'].includes(t) ? 255 : -1; }
+
 function soEdit(p, copy) {
   soDraft = p ? { was: copy ? '' : p.name, name: copy ? p.name + ' copy' : p.name, channels: p.channels.map(c => ({ ...c })) }
-    : { was: '', name: '', channels: [{ name: 'Dimmer', type: 'dimmer', default: 0 }] };
+    : { was: '', name: '', channels: [{ name: 'Dimmer', type: 'dimmer', default: 0, highlight: 128 }] };
   soEls.profileNote.textContent = '';
   soDrawEditor();
 }
@@ -420,11 +494,17 @@ soEls.editor.addEventListener('input', ev => {
   if (!tr || !f) return;
   const c = soDraft.channels[Number(tr.dataset.i)];
   if (f === 'default') c.default = /^\d+$/.test(ev.target.value.trim()) ? Number(ev.target.value) : -1;
+  else if (f === 'highlight') { const v = ev.target.value.trim(); c.highlight = v === '' ? -1 : /^\d+$/.test(v) ? Number(v) : 999; }
   else {
     // Picking a type names a channel still called by its old type or its number.
     if (f === 'type' && (!c.name || /^Ch \d+$/.test(c.name) || c.name.toLowerCase() === c.type)) {
       c.name = ev.target.value[0].toUpperCase() + ev.target.value.slice(1);
       tr.querySelector('[data-f=name]').value = c.name;
+    }
+    if (f === 'type') {
+      // The usual highlight level for the new type: dimmer at 50%, red, green and blue at full.
+      c.highlight = soTypeHighlight(ev.target.value);
+      tr.querySelector('[data-f=highlight]').value = c.highlight >= 0 ? c.highlight : '';
     }
     c[f] = ev.target.value;
   }
@@ -433,7 +513,7 @@ soEls.editor.addEventListener('click', async ev => {
   const b = ev.target.closest('[data-act]');
   if (!b || b.disabled || !soDraft) return;
   const tr = b.closest('tr[data-i]'), i = tr ? Number(tr.dataset.i) : -1, ch = soDraft.channels, act = b.dataset.act;
-  if (act === 'addch') ch.push({ name: `Ch ${ch.length + 1}`, type: 'other', default: 0 });
+  if (act === 'addch') ch.push({ name: `Ch ${ch.length + 1}`, type: 'other', default: 0, highlight: -1 });
   else if (act === 'drop') ch.splice(i, 1);
   else if (act === 'up') [ch[i - 1], ch[i]] = [ch[i], ch[i - 1]];
   else if (act === 'down') [ch[i + 1], ch[i]] = [ch[i], ch[i + 1]];
