@@ -11,16 +11,20 @@ and `../docs/device-facts.md`.
 
 ## Views
 
-The page opens on **Configure**, for changing what a node does on a system that is
+Four views across the top: **Devices**, **Node**, **Fixtures** and **sACN**. Devices has three
+parts (All devices, Address & reset, Groups) and sACN two (View, Control); each is described
+below under the name it had as a view of its own, and the page remembers which part each was on.
+
+The page opens on Devices, **All devices** (called **Configure** below), for changing what a node does on a system that is
 already addressed: DMX, IOs, process blocks. It lists the devices with a Configure
 button on each node. It has no ticks, no Apply and no Factory reset, so nothing in it
 can re-address the system. A device Scan is not finding can be added by address here.
 
 **Address & reset** is the commissioning page: the numbering table (each device type
 Paired or Sequence, with its third octet, start and name prefix), what to apply
-(addresses, device names, LED, web password off), ticks, Apply settings and Factory reset. A page reload stays on the view you were on; a new tab opens on Configure.
+(addresses, device names, LED, web password off), ticks, Apply settings and Factory reset. A page reload stays on the view you were on; a new tab opens on All devices.
 
-**Node** is one node's configure page, with a chip for every LumiNode in the device list along the top (they wrap onto more rows on a big rig). Click a chip to switch node: the tab you were on (RDM, say) stays. A chip's dot is green when the node can be opened, amber while a job has it and red when it cannot be opened, with the reason in its tooltip. The open node is kept in the page's address, so a reload or a bookmark comes back to it.
+**Node** is one node's configure page, with a chip for every LumiNode in the device list along the top (they wrap onto more rows on a big rig). Click a chip to switch node: the tab you were on (RDM, say) stays. A node has five tabs: **Device** (what it is, Identify, Reboot, name and address; it opens here), **Quick Setup**, **Profiles**, **RDM** and **Advanced** (process blocks, IOs, DMX port state and startup buffers). On the RDM tab each port has an **RDM** tick box: ticked is on; ticking asks first, as discovery can make older fixtures flicker, and unticking turns it off at once. A chip's dot is green when the node can be opened, amber while a job has it and red when it cannot be opened, with the reason in its tooltip. The open node is kept in the page's address, so a reload or a bookmark comes back to it.
 
 **Groups** reads each GigaCore Gen1's groups (Luminex's name for VLANs): name, VLAN ID, and the ports in each,
 with the colour the switch gives each group (`POST /api/groups/read` sends GET requests to `/config/groups` and
@@ -59,7 +63,7 @@ and **Export CSV** saves everything read, UIDs included. RDM is turned on per po
 Configure page, RDM tab (see `../docs/configure-page.md`, "RDM"). Used on a real rig of eight LumiNode 12s on
 12 Nov 2026.
 
-**sACN view** shows what is arriving on each sACN universe: a tile per universe with its source
+**sACN, View** shows what is arriving on each sACN universe: a tile per universe with its source
 and frame rate, and for the one clicked, all 512 levels (0-255, or **Levels in %**), updated eight
 times a second. It only listens. Nothing in this view changes a level or a device; the one thing it
 sends is the join for each universe's multicast group (an IGMP report), which is how a switch knows
@@ -84,7 +88,7 @@ software on the computer) the first time the view is opened.
 it is given `--multicast` or `--to`, which put levels on a real network. Checked against it only
 (25 Nov 2026): not yet tried with a real console or through a real switch.
 
-**sACN control** makes this tool a small sACN source, for testing a rig without a console.
+**sACN, Control** makes this tool a small sACN source, for testing a rig without a console.
 **Nothing is sent until Start output, and it never starts by itself**: every run begins with the
 output off and every level at zero. While it is sending, any node listening to those universes
 puts the levels on its DMX outputs, so treat Start like bringing up a fader on a desk.

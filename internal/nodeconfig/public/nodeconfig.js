@@ -1149,12 +1149,17 @@ nc$('btn-apply-all-startup').onclick = async () => {
   if (applied) toast(`${applied} startup buffer(s) set`);
 };
 
-// Load startup data when tab is clicked
+// ── Advanced: Process, IOs, DMX and Startup share one tab ──────────────────────
+function advShow(name) {
+  document.querySelectorAll('#adv-tabs [data-adv]').forEach(b => b.classList.toggle('active-tab', b.dataset.adv === name));
+  document.querySelectorAll('#p-advanced .subpanel').forEach(p => p.classList.toggle('active', p.id === 'p-' + name));
+  if (name === 'startup' && currentIp) renderStartup(); // startup data is read when it is shown
+}
+document.querySelectorAll('#adv-tabs [data-adv]').forEach(b => { b.onclick = () => advShow(b.dataset.adv); });
 document.querySelectorAll('.tab').forEach(t => {
-  if (t.dataset.tab === 'startup') {
-    const origOnclick = t.onclick;
-    t.addEventListener('click', () => { if (currentIp) renderStartup(); });
-  }
+  if (t.dataset.tab === 'advanced') t.addEventListener('click', () => {
+    if (currentIp && nc$('p-startup').classList.contains('active')) renderStartup();
+  });
 });
 
 // ── RDM ───────────────────────────────────────────────────────────────────────
@@ -1299,9 +1304,13 @@ function rdmPortHtml(p) {
   const dis = busy ? `disabled title="${esc(busy)}"` : '';
   const actions = p.rdm
     ? `<button class="btn sm sec" onclick="rdmRead(${p.port})" ${dis || 'title="Ask each fixture for its settings"'}>${busy === 'Reading…' ? 'READING…' : '↻ READ'}</button>
-       <button class="btn sm" onclick="rdmDiscover(${p.port})" ${dis || `title="Ask the node to search port ${p.port} for fixtures again"`}>⊹ REDISCOVER</button>
-       <button class="btn sm" onclick="rdmSet(${p.port}, false)" ${dis || 'title="Stop RDM on this port; DMX carries on"'}>RDM OFF</button>`
-    : `<button class="btn sm warn" onclick="rdmAskOn(${p.port})" ${!output ? `disabled title="${esc(notOut)}"` : dis || 'title="Start RDM on this port"'}>TURN RDM ON…</button>`;
+       <button class="btn sm" onclick="rdmDiscover(${p.port})" ${dis || `title="Ask the node to search port ${p.port} for fixtures again"`}>⊹ REDISCOVER</button>`
+    : '';
+  // The tick box is the port's RDM state: ticked is on. Unticking turns it off at
+  // once; ticking asks first (below), as discovery can make older fixtures flicker.
+  const tickWhy = busy ? busy : !output && !p.rdm ? notOut : p.rdm ? 'RDM is on. Untick to stop RDM on this port; DMX carries on' : 'RDM is off. Tick to start RDM on this port';
+  const tick = `<label class="rdm-tick${p.rdm ? ' on' : ''}" title="${esc(tickWhy)}"><input type="checkbox" ${p.rdm ? 'checked' : ''} ${busy || (!output && !p.rdm) ? 'disabled' : ''}
+      onchange="this.checked ? rdmAskOn(${p.port}) : rdmSet(${p.port}, false)">RDM</label>`;
   const confirm = rdm.confirm === p.port && !p.rdm ? `<div class="rdm-confirm">
       <span>Turning RDM on starts fixture discovery on DMX port ${p.port}. DMX keeps flowing, but some older fixtures can flicker while discovery runs.</span>
       <button class="btn sm warn" onclick="rdmSet(${p.port}, true)">TURN RDM ON</button>
@@ -1318,7 +1327,7 @@ function rdmPortHtml(p) {
     <div class="rdm-head">
       <span class="rdm-title">PORT ${p.port}</span>
       <span class="rdm-src">${esc(p.source || (output ? 'no input' : p.ioType.toUpperCase()))}</span>
-      ${p.rdm ? '<span class="badge b-ok">RDM ON</span>' : '<span class="badge b-dim">RDM OFF</span>'}
+      ${tick}
       <span class="rdm-count">${esc(count)}</span>
       ${res && res.fixtures.length ? `<span class="rdm-view">
         <button class="btn sm${rdm.view === 'tiles' ? ' active-tab' : ''}" onclick="rdmSetView('tiles')" title="Show fixtures as tiles">TILES</button><button class="btn sm${rdm.view === 'table' ? ' active-tab' : ''}" onclick="rdmSetView('table')" title="Show fixtures as a table">TABLE</button>
@@ -1694,7 +1703,7 @@ nc$('pw-save').onclick = async () => {
 // While a job has this device, write buttons are disabled with the reason, and the
 // server refuses writes too. Tab buttons and Cancel stay usable.
 // The IO class and usage filters and SHOW INTERNAL only change the view, so they stay usable.
-const LOCKABLE = '.content button:not(#io-filters button), .modal-foot button:not([id$="cancel"])';
+const LOCKABLE = '.content button:not(#io-filters button):not(#adv-tabs button), .content .rdm-tick input, .modal-foot button:not([id$="cancel"])';
 let lockWhy = '';
 function applyLock() {
   document.querySelectorAll(LOCKABLE).forEach(b => {

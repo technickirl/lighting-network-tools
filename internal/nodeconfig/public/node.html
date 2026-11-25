@@ -9,20 +9,43 @@
 </div>
 
 <div class="nc-main">
+  <!-- Five tabs. Device opens first: nothing on it changes the node by one click. -->
   <nav>
+    <button class="tab active" data-tab="device">◈ Device</button>
     <button class="tab" data-tab="quicksetup">⚡ Quick Setup</button>
-    <button class="tab active" data-tab="overview">◈ Overview</button>
-    <button class="tab" data-tab="processblocks">⚙ Process</button>
-    <button class="tab" data-tab="ios">⬡ IOs</button>
-    <button class="tab" data-tab="dmx">◎ DMX</button>
-    <button class="tab" data-tab="rdm">✳ RDM</button>
-    <button class="tab" data-tab="network">⌘ Network</button>
     <button class="tab" data-tab="profiles">◧ Profiles</button>
-    <button class="tab" data-tab="startup">⊡ Startup</button>
+    <button class="tab" data-tab="rdm">✳ RDM</button>
+    <button class="tab" data-tab="advanced">⚙ Advanced</button>
   </nav>
 
   <div class="content">
     <div class="warn-banner" id="follow-banner" style="display:none"></div>
+
+    <!-- Device: what the node is, and its name and address -->
+    <div class="panel active" id="p-device">
+      <!-- Overview -->
+      <div class="section" id="p-overview">
+        <div class="sec-head">DEVICE OVERVIEW
+          <div style="display:flex;gap:6px">
+            <button class="btn sm warn" id="btn-identify" disabled>⊹ IDENTIFY</button>
+            <button class="btn sm dan" id="btn-reboot" disabled>↺ REBOOT</button>
+          </div>
+        </div>
+        <div id="overview-body">
+          <div class="empty"><div class="icon">◈</div>
+          <p>Pick a node above</p></div>
+        </div>
+      </div>
+
+      <!-- Network -->
+      <div class="section" id="p-network">
+        <div class="sec-head">NETWORK</div>
+        <div id="net-body">
+          <div class="empty"><div class="icon">⌘</div>
+          <p>No device connected</p></div>
+        </div>
+      </div>
+    </div>
 
     <!-- Quick Setup -->
     <div class="panel" id="p-quicksetup">
@@ -37,77 +60,6 @@
       <div class="qs-apply-bar">
         <button class="btn pri" id="btn-qs-apply" disabled>⚡ APPLY</button>
         <span class="qs-apply-hint" id="qs-hint">Connect to a device first.</span>
-      </div>
-    </div>
-
-    <!-- Overview -->
-    <div class="panel active" id="p-overview">
-      <div class="sec-head">DEVICE OVERVIEW
-        <div style="display:flex;gap:6px">
-          <button class="btn sm warn" id="btn-identify" disabled>⊹ IDENTIFY</button>
-          <button class="btn sm dan" id="btn-reboot" disabled>↺ REBOOT</button>
-        </div>
-      </div>
-      <div id="overview-body">
-        <div class="empty"><div class="icon">◈</div>
-        <p>Pick a node above</p></div>
-      </div>
-    </div>
-
-    <!-- Process Blocks -->
-    <div class="panel" id="p-processblocks">
-      <div class="sec-head">PROCESS BLOCKS
-        <span class="live" id="live-pb" style="display:none">
-          <span class="ldot"></span>LIVE
-        </span>
-      </div>
-      <div id="pb-body">
-        <div class="empty"><div class="icon">⚙</div>
-        <p>No device connected</p></div>
-      </div>
-    </div>
-
-    <!-- IOs -->
-    <div class="panel" id="p-ios">
-      <div class="sec-head">INPUT / OUTPUT CONFIGURATION
-        <span class="live" id="live-io" style="display:none">
-          <span class="ldot"></span>LIVE
-        </span>
-      </div>
-      <div class="filters" id="io-filters">
-        <div class="fgroup"><span class="flabel">CLASS</span>
-          <button class="btn sm active-tab" data-iofilter="class" data-val="all">ALL</button>
-          <button class="btn sm" data-iofilter="class" data-val="sacn">sACN</button>
-          <button class="btn sm" data-iofilter="class" data-val="artnet">ART-NET</button>
-          <button class="btn sm" data-iofilter="class" data-val="dmx">DMX</button>
-        </div>
-        <div class="fgroup"><span class="flabel">USAGE</span>
-          <button class="btn sm active-tab" data-iofilter="use" data-val="all">ALL</button>
-          <button class="btn sm" data-iofilter="use" data-val="used">IN USE</button>
-          <button class="btn sm" data-iofilter="use" data-val="unused">UNUSED</button>
-        </div>
-        <div class="fgroup">
-          <button class="btn sm" id="io-internal-toggle" data-iofilter="internal" data-val="toggle"
-            title="The node's internal IOs (one per process block) carry no settings; hidden by default">SHOW INTERNAL</button>
-        </div>
-        <span class="fcount" id="io-count"></span>
-      </div>
-      <div id="io-body">
-        <div class="empty"><div class="icon">⬡</div>
-        <p>No device connected</p></div>
-      </div>
-    </div>
-
-    <!-- DMX Ports -->
-    <div class="panel" id="p-dmx">
-      <div class="sec-head">DMX PORT STATE
-        <span class="live" id="live-dmx" style="display:none">
-          <span class="ldot"></span>LIVE
-        </span>
-      </div>
-      <div id="dmx-body">
-        <div class="empty"><div class="icon">◎</div>
-        <p>No device connected</p></div>
       </div>
     </div>
 
@@ -126,15 +78,6 @@
       </div>
     </div>
 
-    <!-- Network -->
-    <div class="panel" id="p-network">
-      <div class="sec-head">NETWORK</div>
-      <div id="net-body">
-        <div class="empty"><div class="icon">⌘</div>
-        <p>No device connected</p></div>
-      </div>
-    </div>
-
     <!-- Profiles -->
     <div class="panel" id="p-profiles">
       <div class="sec-head">PROFILES</div>
@@ -144,15 +87,81 @@
       </div>
     </div>
 
-    <!-- Startup buffer (panel was missing in v28: the page script crashed on btn-apply-all-startup) -->
-    <div class="panel" id="p-startup">
-      <div class="sec-head">STARTUP BUFFER — SNAPSHOT PER PROCESS BLOCK
-        <button class="btn sm pri" id="btn-apply-all-startup" disabled
-          title="Apply the selected snapshot to every process block">⊡ APPLY ALL</button>
+    <!-- Advanced: the views for building a node's routing by hand -->
+    <div class="panel" id="p-advanced">
+      <div class="subtabs" id="adv-tabs">
+        <button class="btn sm active-tab" data-adv="processblocks">⚙ PROCESS</button>
+        <button class="btn sm" data-adv="ios">⬡ IOS</button>
+        <button class="btn sm" data-adv="dmx">◎ DMX</button>
+        <button class="btn sm" data-adv="startup">⊡ STARTUP</button>
       </div>
-      <div id="startup-body">
-        <div class="empty"><div class="icon">⊡</div>
-        <p>No device connected</p></div>
+      <!-- Process Blocks -->
+      <div class="subpanel active" id="p-processblocks">
+        <div class="sec-head">PROCESS BLOCKS
+          <span class="live" id="live-pb" style="display:none">
+            <span class="ldot"></span>LIVE
+          </span>
+        </div>
+        <div id="pb-body">
+          <div class="empty"><div class="icon">⚙</div>
+          <p>No device connected</p></div>
+        </div>
+      </div>
+
+      <!-- IOs -->
+      <div class="subpanel" id="p-ios">
+        <div class="sec-head">INPUT / OUTPUT CONFIGURATION
+          <span class="live" id="live-io" style="display:none">
+            <span class="ldot"></span>LIVE
+          </span>
+        </div>
+        <div class="filters" id="io-filters">
+          <div class="fgroup"><span class="flabel">CLASS</span>
+            <button class="btn sm active-tab" data-iofilter="class" data-val="all">ALL</button>
+            <button class="btn sm" data-iofilter="class" data-val="sacn">sACN</button>
+            <button class="btn sm" data-iofilter="class" data-val="artnet">ART-NET</button>
+            <button class="btn sm" data-iofilter="class" data-val="dmx">DMX</button>
+          </div>
+          <div class="fgroup"><span class="flabel">USAGE</span>
+            <button class="btn sm active-tab" data-iofilter="use" data-val="all">ALL</button>
+            <button class="btn sm" data-iofilter="use" data-val="used">IN USE</button>
+            <button class="btn sm" data-iofilter="use" data-val="unused">UNUSED</button>
+          </div>
+          <div class="fgroup">
+            <button class="btn sm" id="io-internal-toggle" data-iofilter="internal" data-val="toggle"
+              title="The node's internal IOs (one per process block) carry no settings; hidden by default">SHOW INTERNAL</button>
+          </div>
+          <span class="fcount" id="io-count"></span>
+        </div>
+        <div id="io-body">
+          <div class="empty"><div class="icon">⬡</div>
+          <p>No device connected</p></div>
+        </div>
+      </div>
+
+      <!-- DMX Ports -->
+      <div class="subpanel" id="p-dmx">
+        <div class="sec-head">DMX PORT STATE
+          <span class="live" id="live-dmx" style="display:none">
+            <span class="ldot"></span>LIVE
+          </span>
+        </div>
+        <div id="dmx-body">
+          <div class="empty"><div class="icon">◎</div>
+          <p>No device connected</p></div>
+        </div>
+      </div>
+
+      <!-- Startup buffer (panel was missing in v28: the page script crashed on btn-apply-all-startup) -->
+      <div class="subpanel" id="p-startup">
+        <div class="sec-head">STARTUP BUFFER — SNAPSHOT PER PROCESS BLOCK
+          <button class="btn sm pri" id="btn-apply-all-startup" disabled
+            title="Apply the selected snapshot to every process block">⊡ APPLY ALL</button>
+        </div>
+        <div id="startup-body">
+          <div class="empty"><div class="icon">⊡</div>
+          <p>No device connected</p></div>
+        </div>
       </div>
     </div>
 
