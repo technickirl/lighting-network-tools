@@ -55,7 +55,7 @@ const configurePath = "/configure/"
 
 // newMux puts the device list at / and the node configure page's files under
 // /configure/: the device list's page loads them into its Node view. /configure/
-// itself was a page of its own before 1.9.0, so an old bookmark or open tab is
+// itself was a page of its own before 2.0.0, so an old bookmark or open tab is
 // sent to the same node in the Node view.
 // The sACN view is a tab of the device list's page; its API is /api/sacn.
 func newMux(opts commission.Options) *http.ServeMux {

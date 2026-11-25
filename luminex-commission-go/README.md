@@ -250,7 +250,7 @@ node, ticked or not.
   has been swapped out and left the scan list. It uses the device's current address
   if it is on the list, otherwise the last address it was given.
 
-Each device opens on the **Node** tab of the same page (before 1.9.0 it was a browser tab of its own; an old `/configure/?ip=…` address still lands on that node).
+Each device opens on the **Node** tab of the same page (before 2.0.0 it was a browser tab of its own; an old `/configure/?ip=…` address still lands on that node).
 The button is disabled, with a tooltip saying why, for a switch, a device in a
 running job, a dry-run entry, or an address no adapter on this computer can reach.
 
