@@ -143,6 +143,19 @@ puts the levels on its DMX outputs, so treat Start like bringing up a fader on a
   typed channels and the standard highlight: dimmer 50%, red, green and blue 100%, cyan, magenta
   and yellow 0. A fixture that answers neither gets plain numbered channels and no highlight until
   they are set in the editor. A profile already saved under that name is used as it is.
+- **Patch all**: above the Fixtures list there is a button per sACN universe that fixtures were
+  read on (`Universe 1 · 5 fixtures`; a universe on two ports or two nodes is one button). It
+  patches them all, in address order, and says what it did: how many were patched, how many were
+  already in the patch, which profiles are new, and each fixture it could not patch with the reason.
+  Nothing is sent to a fixture or a node beyond the RDM reads of its channels.
+- **No duplicates** (Patch and Patch all): a fixture already in the patch at that universe and
+  address is left alone; a fixture whose channels would overlap another is refused before any
+  profile is made. A profile is found first by name, the model and personality (the personality's
+  number, `mode 3`, when the fixture gives it no name, so two modes never share a profile; a
+  saved profile of that name with another channel count is not used). Failing that, a profile
+  whose channels are the same types in the same order is used, so a one-channel dimmer takes the
+  built-in Dimmer and a red, green, blue fixture takes RGB; channels of type `other` never match.
+  Only then is a new profile made.
 - **16-bit channels**: a channel ticked **Fine** in the editor is the low half of a 16-bit pair
   with the channel before it (pan and pan fine, dimmer and dimmer fine, any type). The pair is one
   fader on the tile, shown in percent, driving both DMX channels; Off and Full set both halves, and

@@ -475,6 +475,7 @@ span.grp-cell { cursor: default; }
 .so-edit-table input[data-f=name] { width: 160px; }
 .so-folder { margin-top: 10px; }
 .so-profile-buttons { margin-top: 0; }
+.fx-patch-all { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; font-size: 12px; margin: 8px 0 2px; }
 .fx-patch { padding: 2px 8px; font-size: 11px; }
 .so-hl.active { background: #fde68a; border-color: #fde68a; color: #000; }
 .so-fx-foot { flex-wrap: wrap; } .so-fx-foot .btn { white-space: nowrap; padding-left: 8px; padding-right: 8px; }
