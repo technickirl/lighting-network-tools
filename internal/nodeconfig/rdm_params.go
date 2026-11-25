@@ -532,6 +532,18 @@ func registerRDMParamRoutes(handle func(string, http.HandlerFunc)) {
 		}
 		ok(w, d)
 	})
+	handle("GET /api/node/{ip}/rdm/{port}/fixture/{uid}/slots", func(w http.ResponseWriter, r *http.Request) {
+		ip, port, uid, good := params(w, r)
+		if !good {
+			return
+		}
+		slots, err := fixtureSlots(ip, port, uid)
+		if err != nil {
+			deviceFail(w, "RDM slots "+ip, err)
+			return
+		}
+		ok(w, obj{"slots": slots})
+	})
 	handle("POST /api/node/{ip}/rdm/{port}/fixture/{uid}/param", func(w http.ResponseWriter, r *http.Request) {
 		ip, port, uid, good := params(w, r)
 		if !good {

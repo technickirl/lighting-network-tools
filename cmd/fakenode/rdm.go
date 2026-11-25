@@ -36,6 +36,12 @@ var (
 			fx(0x4F75000DC115, "Vortex 4", 21, 1, "CSV-4 900112", direct, hsi),
 			{UID: 0x7A70000A0001, Manufacturer: "Fake Atmos", Model: "Hazer H1", ModelID: 0x0010, Category: 0x0401, Label: "Haze SL",
 				Software: "1.0.4", Start: 501, Personality: 1, Personalities: []artnet.FakePersonality{{Footprint: 2, Name: "2ch"}}, AckTimerOnce: true},
+			// Says what its channels are (SLOT_INFO and SLOT_DESCRIPTION): a CMY spot with a 16-bit dimmer.
+			{UID: 0x7A70000B0001, Manufacturer: "Fake Movers", Model: "Spot S1", ModelID: 0x0020, Category: 0x0102, Label: "Spot 1",
+				Software: "2.0.0", Start: 301, Personality: 1, Personalities: []artnet.FakePersonality{{Footprint: 8, Name: "Basic"}},
+				Slots: []artnet.Slot{{Offset: 0, Label: 0x0001}, {Offset: 1, Type: 1, Label: 0}, {Offset: 2, Label: 0x0202}, {Offset: 3, Label: 0x0204},
+					{Offset: 4, Label: 0x0203}, {Offset: 5, Label: 0x0101}, {Offset: 6, Label: 0x0102}, {Offset: 7, Label: 0xFFFF}},
+				SlotNames: map[uint16]string{0: "Dimmer", 1: "Dimmer fine", 2: "Cyan", 3: "Magenta", 4: "Yellow", 5: "Pan", 6: "Tilt", 7: "Strobe / shutter"}},
 		},
 		// Ports 2 and 3 of the 4-port seed are both fed by sACN U101 (the BACKUP and HTP blocks).
 		101: {fx(0x4F75000DC200, "Vortex 24", 1, 1, "CSV-24 911001", direct, hsi)},

@@ -14,6 +14,8 @@ import (
 const (
 	PIDParameterDescription uint16 = 0x0051
 	PIDFactoryDefaults      uint16 = 0x0090
+	PIDSlotInfo             uint16 = 0x0120
+	PIDSlotDescription      uint16 = 0x0121
 	PIDSensorDefinition     uint16 = 0x0200
 	PIDSensorValue          uint16 = 0x0201
 	PIDCurve                uint16 = 0x0343 // E1.37-1
@@ -205,4 +207,34 @@ func PrefixPower(p byte) int {
 		return 3 * int(p-0x12)
 	}
 	return 0
+}
+
+// Slot is one DMX slot of a fixture's current personality, from SLOT_INFO.
+// Type 0 is a primary slot and Label says what it does (E1.20 table C-2: 0x0001
+// intensity, 0x0205 red, ...). Any other Type is a secondary slot (0x01 is the
+// fine byte) and Label is the offset of the primary slot it belongs to.
+type Slot struct {
+	Offset uint16 // 0 for the fixture's first channel
+	Type   uint8
+	Label  uint16
+}
+
+// ParseSlotInfo decodes SLOT_INFO: five octets a slot.
+func ParseSlotInfo(d []byte) []Slot {
+	var out []Slot
+	for ; len(d) >= 5; d = d[5:] {
+		out = append(out, Slot{Offset: binary.BigEndian.Uint16(d), Type: d[2], Label: binary.BigEndian.Uint16(d[3:])})
+	}
+	return out
+}
+
+// SlotInfoBytes is the reverse, for the fake fixtures.
+func SlotInfoBytes(slots []Slot) []byte {
+	var d []byte
+	for _, s := range slots {
+		d = binary.BigEndian.AppendUint16(d, s.Offset)
+		d = append(d, s.Type)
+		d = binary.BigEndian.AppendUint16(d, s.Label)
+	}
+	return d
 }
