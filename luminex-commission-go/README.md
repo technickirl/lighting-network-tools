@@ -97,6 +97,12 @@ puts the levels on its DMX outputs, so treat Start like bringing up a fader on a
   names ending in a number count up). Each gets a tile with its dimmer (or all its channels when it
   has no dimmer), Off, Full and Highlight, and its other channels under More, where Remove is too.
   Two fixtures cannot share a channel.
+- Click a fixture's name to select it. With two or more selected, the one at the lowest address
+  (lowest universe first) is the **master**: its faders, Off, Full and Highlight move every
+  selected fixture, each channel going to the channel of the same type on the others (so a Dimmer
+  + RGBW master moves a plain Dimmer's dimmer and nothing else). The others still move on their
+  own from their own tiles. The selection belongs to the page, not the tool, so a laptop and an
+  iPad can each have their own.
 - **Highlight** fades a fixture to its profile's highlight levels over half a second, to find it
   on the rig; clicking again fades it back to the levels it had before. The levels belong to the
   profile, one per channel: by default the dimmer at 50% (128) and red, green and blue at full,
