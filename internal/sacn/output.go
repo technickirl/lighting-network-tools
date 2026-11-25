@@ -162,6 +162,9 @@ type output struct {
 	// The fade a fixture is in, by id. A newer fade, Clear or Remove changes it and the old fade stops.
 	fading  map[int]int
 	fadeSeq int
+	// Universes the operator ticked to send with nothing on them: kept, at zero,
+	// where an idle universe is otherwise let go.
+	keep map[int]bool
 }
 
 var out = &output{sender: NewSender()}
@@ -222,14 +225,86 @@ func (o *output) load() {
 			o.defaults(f)
 		}
 	}
+	// Which universes are sent: the ones ticked with nothing on them, and the
+	// ones with a patch that were unticked.
+	o.keep = map[int]bool{}
+	if b, err := os.ReadFile(beside("sacn-send.json")); err == nil {
+		var sv sendFile
+		if err := json.Unmarshal(b, &sv); err != nil {
+			luminex.Warnf("sACN: %s cannot be read: %v", beside("sacn-send.json"), err)
+		}
+		for _, u := range sv.Keep {
+			if u >= 1 && u <= MaxUniverse && o.sender.Ensure(uint16(u)) == nil {
+				o.keep[u] = true
+			}
+		}
+		for _, u := range sv.Off {
+			if u >= 1 && u <= MaxUniverse {
+				_ = o.sender.SetSending(uint16(u), false) // nothing happens unless it is carried
+			}
+		}
+	}
+}
+
+// sendFile is sacn-send.json: the universes kept with nothing on them, and the
+// carried ones that are not sent.
+type sendFile struct {
+	Keep []int `json:"keep"`
+	Off  []int `json:"off"`
+}
+
+// setSend ticks or unticks universes for sending. Universe 0 is every universe
+// the sender carries. Ticking one it does not carry adds it, at zero, and keeps
+// it until it is let go. Call with mu held.
+func (o *output) setSend(universe int, on bool) error {
+	us := []int{universe}
+	if universe == 0 {
+		us = us[:0]
+		for _, u := range o.sender.Universes() {
+			us = append(us, int(u))
+		}
+	} else if universe < 1 || universe > MaxUniverse {
+		return fmt.Errorf("universes run from 1 to %d", MaxUniverse)
+	}
+	for _, u := range us {
+		if _, carried := o.sender.Levels(uint16(u)); !carried {
+			if !on {
+				continue
+			}
+			o.keep[u] = true
+		}
+		if err := o.sender.SetSending(uint16(u), on); err != nil {
+			delete(o.keep, u)
+			return err
+		}
+	}
+	if universe == 0 {
+		luminex.Logf("sACN output: every universe %s", map[bool]string{true: "ticked to send", false: "unticked, none is sent"}[on])
+	} else {
+		luminex.Logf("sACN output: universe %d %s", universe, map[bool]string{true: "ticked to send", false: "unticked, not sent"}[on])
+	}
+	o.save("send")
+	return nil
 }
 
 func (o *output) save(what string) {
 	var err error
 	if what == "profiles" {
 		err = writeFile(beside("sacn-profiles.json"), o.profiles)
+	} else if what == "send" {
+		sv := sendFile{Keep: []int{}, Off: []int{}}
+		for _, u := range o.sender.Universes() {
+			if o.keep[int(u)] {
+				sv.Keep = append(sv.Keep, int(u))
+			}
+			if !o.sender.Sending(u) {
+				sv.Off = append(sv.Off, int(u))
+			}
+		}
+		err = writeFile(beside("sacn-send.json"), sv)
 	} else {
 		err = writeFile(beside("sacn-patch.json"), o.fixtures)
+		defer o.save("send") // a patch change can let a universe go
 	}
 	if err != nil {
 		luminex.Warnf("sACN: could not save the %s: %v", what, err)
@@ -449,6 +524,9 @@ func (o *output) remove(ids []int) {
 }
 
 func (o *output) releaseIfIdle(u int) {
+	if o.keep[u] {
+		return
+	}
 	for _, f := range o.fixtures {
 		if f.Universe == u {
 			return
@@ -496,7 +574,8 @@ type outUniverse struct {
 	Universe int           `json:"universe"`
 	Levels   string        `json:"levels"` // base64 of 512 octets
 	Fixtures int           `json:"fixtures"`
-	Others   []otherSource `json:"others"` // other sources heard on this universe right now
+	Sending  bool          `json:"sending"` // ticked: sent while the output is on
+	Others   []otherSource `json:"others"`  // other sources heard on this universe right now
 }
 
 type outState struct {
@@ -567,7 +646,7 @@ func (o *output) state() outState {
 		if others == nil {
 			others = []otherSource{}
 		}
-		st.Universes = append(st.Universes, outUniverse{Universe: int(u), Levels: base64.StdEncoding.EncodeToString(l[:]), Fixtures: count[int(u)], Others: others})
+		st.Universes = append(st.Universes, outUniverse{Universe: int(u), Levels: base64.StdEncoding.EncodeToString(l[:]), Fixtures: count[int(u)], Sending: o.sender.Sending(u), Others: others})
 	}
 	return st
 }
@@ -678,9 +757,23 @@ func mountOutput(mux *http.ServeMux) {
 				}
 			}
 			o.sender.Release(uint16(body.Universe))
+			delete(o.keep, body.Universe)
+			o.save("send")
 			luminex.Logf("sACN output: let go of universe %d", body.Universe)
 			return nil
 		})
+	})
+	// Tick or untick a universe for sending; universe 0 is every one carried.
+	mux.HandleFunc("POST /api/sacn/out/send", func(w http.ResponseWriter, r *http.Request) {
+		var body struct {
+			Universe int  `json:"universe"`
+			On       bool `json:"on"`
+		}
+		if err := readBody(r, &body); err != nil {
+			fail(w, err)
+			return
+		}
+		do(w, func() error { return o.setSend(body.Universe, body.On) })
 	})
 	mux.HandleFunc("POST /api/sacn/out/fixtures/add", func(w http.ResponseWriter, r *http.Request) {
 		var body struct {

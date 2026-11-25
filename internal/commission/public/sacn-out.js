@@ -14,6 +14,7 @@ const soEls = {
   add: $('btnSoAdd'), addNote: $('soAddNote'), tiles: $('soTiles'),
   rawUniverse: $('soRawUniverse'), rawInfo: $('soRawInfo'), release: $('btnSoRelease'), rawSel: $('soRawSel'), rawLevel: $('soRawLevel'), rawValue: $('soRawValue'),
   rawZero: $('btnSoRawZero'), rawHalf: $('btnSoRawHalf'), rawFull: $('btnSoRawFull'), rawNone: $('btnSoRawNone'), rawNote: $('soRawNote'), grid: $('soGrid'),
+  uniInfo: $('soUniInfo'), uniChips: $('soUniChips'), sendAll: $('btnSoSendAll'), sendNone: $('btnSoSendNone'), uniAdd: $('soUniAdd'), uniAddBtn: $('btnSoUniAdd'), uniNote: $('soUniNote'),
   newProfile: $('btnSoNewProfile'), importBtn: $('btnSoImport'), importFile: $('soImportFile'), profileNote: $('soProfileNote'), editor: $('soEditor'), profileList: $('soProfileList'),
 };
 
@@ -32,6 +33,8 @@ let soTilesSig = '', soProfilesSig = '', soIfaceSig = '', soProfileOptsSig = '',
 const soSel = new Set();       // selected addresses on the Channels tab
 let soSelLast = null;
 let soDragging = null;          // the fader being dragged
+let soUni = 'all';              // the universe chip that is picked: its fixtures are the ones shown
+let soUniSig = '';
 let soDraft = null;            // the profile being edited: { was, name, channels: [{name,type,default}] }
 
 function sacnOutShown(on) {
@@ -105,6 +108,7 @@ function soStartWhyNot() {
   if (!so.interfaces.length) return 'This computer has no network connection to send from';
   if (!soEls.iface.value) return 'Choose the network connection to send from first';
   if (!so.universes.length) return 'Nothing to send yet: patch a fixture or set a channel first';
+  if (!so.universes.some(u => u.sending)) return 'No universe is ticked to send';
   const p = Number(soEls.priority.value);
   if (!/^\d+$/.test(soEls.priority.value.trim()) || p > 200) return 'Priority runs from 0 to 200';
   return '';
@@ -131,8 +135,8 @@ function soRender() {
 
   soEls.bar.classList.toggle('so-live', running);
   soEls.state.textContent = running ? (so.dry ? 'DRY RUN' : 'SENDING') : 'OUTPUT OFF';
-  const us = so.universes.map(u => u.universe);
-  soEls.status.textContent = running ? `— sending universe${us.length === 1 ? '' : 's'} ${us.join(', ')} at priority ${so.priority}` : '— off';
+  const us = so.universes.filter(u => u.sending).map(u => u.universe); // the ticked ones
+  soEls.status.textContent = !running ? '— off' : us.length ? `— sending universe${us.length === 1 ? '' : 's'} ${us.join(', ')} at priority ${so.priority}` : '— on, but no universe is ticked to send';
 
   const why = soStartWhyNot();
   soEls.start.disabled = !!why;
@@ -170,11 +174,73 @@ function soRender() {
     if (so.profiles.some(p => p.name === keep)) soEls.addProfile.value = keep;
     soProfileOptsSig = opts;
   }
+  soRenderUni();
   soRenderTiles();
   soRenderGrid();
   soRenderProfiles();
   soDrawLevels();
 }
+
+// ─── Universes ──────────────────────────────────────────────────────────────
+// The fixtures the Fixtures tab shows: all of them, or the picked universe's.
+function soShown() { return soUni === 'all' ? so.fixtures : so.fixtures.filter(f => f.universe === soUni); }
+
+function soRenderUni() {
+  if (soUni !== 'all' && !so.universes.some(u => u.universe === soUni)) soUni = 'all';
+  const n = so.universes.length, sent = so.universes.filter(u => u.sending).length;
+  soEls.uniInfo.textContent = n ? `${sent} of ${n} universe${n === 1 ? '' : 's'} ticked to send.` + (so.running ? '' : ' Nothing goes out until Start output.')
+    : 'No universes yet: patch a fixture, set a channel, or add one here.';
+  soEls.sendAll.disabled = !n || sent === n;
+  soEls.sendAll.title = !n ? 'No universes yet' : sent === n ? 'Every universe is already ticked' : 'Tick every universe here, empty ones too';
+  soEls.sendNone.disabled = !sent;
+  soEls.sendNone.title = sent ? 'Untick every universe: nothing is sent, and patch and levels are kept' : 'No universe is ticked';
+  const add = soNum(soEls.uniAdd), addWhy = !soEls.uniAdd.value.trim() ? 'Type a universe first' : !(add >= 1 && add <= 63999) ? 'Universes run from 1 to 63999'
+    : so.universes.some(u => u.universe === add) ? `Universe ${add} is already here` : n >= so.maxOutput ? `This tool sends at most ${so.maxOutput} universes at once` : '';
+  soEls.uniAddBtn.disabled = !!addWhy;
+  soEls.uniAddBtn.title = addWhy || `Add universe ${add}, ticked, with every channel at zero`;
+
+  const rows = so.universes.map(u => [u.universe, u.fixtures, u.sending, !!(soLevels[u.universe] && soLevels[u.universe].some(v => v))]);
+  const sig = JSON.stringify([rows, soUni, so.running, so.fixtures.length]);
+  if (sig === soUniSig) return;
+  soUniSig = sig;
+  soEls.uniChips.innerHTML = !n ? '' :
+    `<button class="uni-chip${soUni === 'all' ? ' active' : ''}" data-uni="all" title="Show every patched fixture">All <small>${so.fixtures.length}</small></button>` +
+    rows.map(([u, fixtures, sending, levels]) => {
+      const what = fixtures ? `${fixtures} fixture${fixtures === 1 ? '' : 's'} patched` : levels ? 'Levels set on its channels' : 'Nothing on it: every channel at zero';
+      const how = !sending ? 'Not ticked: not sent' : so.running ? 'Being sent now' : 'Ticked: sent once the output starts';
+      return `<span class="uni-chip has-tick${soUni === u ? ' active' : ''}" title="Universe ${u}. ${what}. ${how}.">
+        <label><input type="checkbox" data-send="${u}" ${sending ? 'checked' : ''} aria-label="Send universe ${u}"></label>
+        <button data-uni="${u}">U${u}${fixtures ? ` <small>${fixtures}</small>` : ''}</button></span>`;
+    }).join('');
+}
+soEls.uniChips.addEventListener('change', ev => {
+  const b = ev.target.closest('[data-send]');
+  if (b) soCommand('send', { universe: Number(b.dataset.send), on: b.checked });
+});
+soEls.uniChips.addEventListener('click', ev => {
+  const b = ev.target.closest('[data-uni]');
+  if (!b) return;
+  soUni = b.dataset.uni === 'all' ? 'all' : Number(b.dataset.uni);
+  if (soUni !== 'all') { // the Channels tab and the patch form follow the chip
+    soEls.rawUniverse.value = soUni;
+    soEls.addUniverse.value = soUni;
+    soSel.clear(); soSelLast = null; soEls.rawNote.textContent = '';
+  }
+  for (const f of so.fixtures) if (soUni !== 'all' && f.universe !== soUni) soPick.delete(f.id); // nothing stays selected out of sight
+  soRender();
+});
+soEls.sendAll.addEventListener('click', () => { if (!soEls.sendAll.disabled) soCommand('send', { universe: 0, on: true }); });
+soEls.sendNone.addEventListener('click', () => { if (!soEls.sendNone.disabled) soCommand('send', { universe: 0, on: false }); });
+async function soUniAdd() {
+  if (soEls.uniAddBtn.disabled) return;
+  const u = soNum(soEls.uniAdd);
+  try { soApply(await soPost('send', { universe: u, on: true })); soEls.uniAdd.value = ''; soEls.uniNote.textContent = `› Universe ${u} added, at zero.`; }
+  catch (e) { soEls.uniNote.textContent = '› ' + e.message; }
+  soRender();
+}
+soEls.uniAddBtn.addEventListener('click', soUniAdd);
+soEls.uniAdd.addEventListener('input', () => { soEls.uniNote.textContent = ''; soRender(); });
+soEls.uniAdd.addEventListener('keydown', ev => { if (ev.key === 'Enter') soUniAdd(); });
 
 // ─── Fixtures ───────────────────────────────────────────────────────────────
 const SO_INTENSITY = ['red', 'green', 'blue', 'white', 'amber', 'lime', 'warm', 'cool', 'uv'];
@@ -195,12 +261,12 @@ function soMaster() { const p = soPicked(); return p.length > 1 ? p[0] : null; }
 function soNth(n) { const t = n % 100; return n + (t > 10 && t < 14 ? 'th' : ['th', 'st', 'nd', 'rd'][n % 10] || 'th'); }
 function soEvery() {
   const num = id => { const s = $(id).value.trim(); return /^\d+$/.test(s) ? parseInt(s, 10) : 0; };
-  const n = num('soEveryN'), from = num('soEveryFrom'), out = { n, from, ids: [], why: '' };
-  if (!so.fixtures.length) out.why = 'No fixtures patched';
+  const n = num('soEveryN'), from = num('soEveryFrom'), out = { n, from, ids: [], why: '' }, shown = soShown();
+  if (!shown.length) out.why = so.fixtures.length ? `No fixtures on universe ${soUni}` : 'No fixtures patched';
   else if (n < 1) out.why = 'Select every needs a whole number, 1 or more';
   else if (from < 1) out.why = 'Starting from needs a whole number, 1 or more';
-  else if (from > so.fixtures.length) out.why = `There are only ${so.fixtures.length} fixtures, so none is the ${soNth(from)}`;
-  else out.ids = [...so.fixtures].sort((a, b) => a.universe - b.universe || a.address - b.address).filter((f, i) => i + 1 >= from && (i + 1 - from) % n === 0).map(f => f.id);
+  else if (from > shown.length) out.why = `There are only ${shown.length} fixtures, so none is the ${soNth(from)}`;
+  else out.ids = [...shown].sort((a, b) => a.universe - b.universe || a.address - b.address).filter((f, i) => i + 1 >= from && (i + 1 - from) % n === 0).map(f => f.id);
   return out;
 }
 
@@ -234,27 +300,31 @@ function soFader(f, i) {
 
 function soRenderTiles() {
   for (const id of [...soPick]) if (!so.fixtures.some(f => f.id === id)) soPick.delete(id);
-  const master = soMaster(), picked = soPicked();
+  const master = soMaster(), picked = soPicked(), shown = soShown();
   $('soPickInfo').textContent = !so.fixtures.length ? '' : master ? `${picked.length} selected. ${master.name} has the lowest address, so its faders and buttons move them all.` :
     picked.length ? '1 selected. Select another to move them together.' : 'Click a fixture\'s name to select it. With several selected, the one at the lowest address moves them all.';
-  for (const [id, off, why] of [['btnSoPickAll', !so.fixtures.length || picked.length === so.fixtures.length, so.fixtures.length ? 'Every fixture is selected' : 'No fixtures patched'], ['btnSoPickNone', !picked.length, 'Nothing is selected']]) {
+  for (const [id, off, why] of [['btnSoPickAll', !shown.length || picked.length === shown.length, shown.length ? 'Every fixture shown is selected' : 'No fixtures to select'], ['btnSoPickNone', !picked.length, 'Nothing is selected']]) {
     $(id).disabled = off; $(id).title = off ? why : '';
   }
   const ev = soEvery(), evBtn = $('btnSoPickEvery');
   evBtn.disabled = !ev.ids.length;
-  evBtn.title = ev.why || `Select ${ev.ids.length} of the ${so.fixtures.length} fixtures: starting from the ${soNth(ev.from)}, every ${soNth(ev.n)} one, in address order. This replaces the selection`;
+  evBtn.title = ev.why || `Select ${ev.ids.length} of the ${shown.length} fixtures${soUni === 'all' ? '' : ' on universe ' + soUni}: starting from the ${soNth(ev.from)}, every ${soNth(ev.n)} one, in address order. This replaces the selection`;
   const rm = $('btnSoPickRemove');
   rm.disabled = !picked.length;
   rm.textContent = picked.length ? `Remove ${picked.length} selected` : 'Remove selected';
   rm.title = picked.length ? `Take the ${picked.length} selected fixture${picked.length === 1 ? '' : 's'} off the patch at once; their channels go to zero` : 'Select the fixtures to remove first (click their names, or Select all)';
-  const sig = JSON.stringify([so.fixtures, [...soOpen], [...soPick]]);
+  const sig = JSON.stringify([so.fixtures, [...soOpen], [...soPick], soUni]);
   if (sig === soTilesSig) return;
   soTilesSig = sig;
   if (!so.fixtures.length) {
     soEls.tiles.innerHTML = `<div class="empty-state small">No fixtures patched. Pick a profile, a universe and an address above, or use <strong>Patch</strong> on a fixture in the Fixtures view.</div>`;
     return;
   }
-  soEls.tiles.innerHTML = `<div class="so-tiles">` + so.fixtures.map(f => {
+  if (!shown.length) {
+    soEls.tiles.innerHTML = `<div class="empty-state small">Nothing is patched on universe ${soUni}. <strong>All</strong> shows every fixture.</div>`;
+    return;
+  }
+  soEls.tiles.innerHTML = `<div class="so-tiles">` + shown.map(f => {
     const main = soMain(f), rest = f.channels.map((c, i) => i).filter(i => !main.includes(i));
     const open = soOpen.has(f.id);
     const end = f.address + Math.max(1, f.channels.length) - 1;
@@ -353,7 +423,7 @@ soEls.tiles.addEventListener('click', async ev => {
     soSet(g.universe, idx.map(i => [g.address + i, act === 'full' ? 255 : 0]));
   }
 });
-$('btnSoPickAll').addEventListener('click', () => { for (const f of so.fixtures) soPick.add(f.id); soRender(); });
+$('btnSoPickAll').addEventListener('click', () => { for (const f of soShown()) soPick.add(f.id); soRender(); });
 $('btnSoPickNone').addEventListener('click', () => { soPick.clear(); soRender(); });
 $('btnSoPickEvery').addEventListener('click', () => { const ev = soEvery(); if (!ev.ids.length) return; soPick.clear(); for (const id of ev.ids) soPick.add(id); soRender(); });
 for (const id of ['soEveryN', 'soEveryFrom']) $(id).addEventListener('input', () => soRender());
@@ -419,8 +489,8 @@ function soRenderGrid() {
   }
   const u = soRawU(), row = so.universes.find(x => x.universe === u);
   const here = so.fixtures.filter(f => f.universe === u);
-  soEls.rawInfo.textContent = !u ? 'Universes run from 1 to 63999.' : !row ? 'Not being sent. Setting a level adds this universe to the output.' :
-    `${here.length} fixture${here.length === 1 ? '' : 's'} patched here.` + (so.running ? ' Being sent now.' : '');
+  soEls.rawInfo.textContent = !u ? 'Universes run from 1 to 63999.' : !row ? 'Not in the output. Setting a level adds this universe, ticked to send.' :
+    `${here.length} fixture${here.length === 1 ? '' : 's'} patched here.` + (!row.sending ? ' Not ticked, so not sent.' : so.running ? ' Being sent now.' : '');
   const why = !row ? 'This universe is not in the output' : here.length ? 'Fixtures are patched here: remove them first' : '';
   soEls.release.disabled = !!why;
   soEls.release.title = why || 'Take this universe out of the output (receivers are told it stopped)';

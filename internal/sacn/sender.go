@@ -41,6 +41,7 @@ type Sender struct {
 	running  bool
 	lastErr  string
 	levels   map[uint16]*[512]byte
+	off      map[uint16]bool // carried, with its levels kept, but not sent
 	seq      map[uint16]uint8
 	conn     *net.UDPConn
 	stop     chan struct{}
@@ -51,7 +52,7 @@ type Sender struct {
 
 // NewSender makes a stopped sender with a fresh CID.
 func NewSender() *Sender {
-	s := &Sender{name: "Luminex Commission", priority: DefaultPriority, levels: map[uint16]*[512]byte{}, seq: map[uint16]uint8{}}
+	s := &Sender{name: "Luminex Commission", priority: DefaultPriority, levels: map[uint16]*[512]byte{}, off: map[uint16]bool{}, seq: map[uint16]uint8{}}
 	_, _ = rand.Read(s.cid[:])
 	return s
 }
@@ -88,6 +89,47 @@ func (s *Sender) universes() []uint16 {
 	}
 	sort.Slice(out, func(i, j int) bool { return out[i] < out[j] })
 	return out
+}
+
+// sending lists the carried universes that are sent: every one not turned off.
+func (s *Sender) sending() []uint16 {
+	out := []uint16{}
+	for _, u := range s.universes() {
+		if !s.off[u] {
+			out = append(out, u)
+		}
+	}
+	return out
+}
+
+// Sending says whether a universe is carried and sent.
+func (s *Sender) Sending(u uint16) bool {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.levels[u] != nil && !s.off[u]
+}
+
+// SetSending turns one universe's output on or off. Off keeps its levels and
+// tells receivers it has stopped, if the sender is running; on carries the
+// universe (at zero if it is new) and sends it again.
+func (s *Sender) SetSending(u uint16, on bool) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if on {
+		if err := s.ensure(u); err != nil {
+			return err
+		}
+		delete(s.off, u)
+		return nil
+	}
+	if s.levels[u] == nil || s.off[u] {
+		return nil
+	}
+	if s.running {
+		s.terminate(u)
+	}
+	s.off[u] = true
+	return nil
 }
 
 // Levels is a copy of one universe's 512 levels, and whether the sender carries it.
@@ -146,10 +188,11 @@ func (s *Sender) Release(u uint16) {
 	if s.levels[u] == nil {
 		return
 	}
-	if s.running {
+	if s.running && !s.off[u] {
 		s.terminate(u)
 	}
 	delete(s.levels, u)
+	delete(s.off, u)
 	delete(s.seq, u)
 }
 
@@ -179,7 +222,7 @@ func (s *Sender) terminate(u uint16) {
 }
 
 func (s *Sender) announce() {
-	us := s.universes()
+	us := s.sending()
 	if len(us) > 0 {
 		s.send(DiscoveryUniverse, Discovery{CID: s.cid, Source: s.name, Universes: us}.Marshal())
 	}
@@ -277,7 +320,7 @@ func (s *Sender) run(stop, done chan struct{}) {
 				s.announce()
 				last = now
 			}
-			for _, u := range s.universes() {
+			for _, u := range s.sending() {
 				s.send(u, s.packet(u, 0))
 			}
 			s.mu.Unlock()
@@ -299,7 +342,7 @@ func (s *Sender) Stop() {
 	<-done
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	for _, u := range s.universes() {
+	for _, u := range s.sending() {
 		s.terminate(u)
 	}
 	if s.conn != nil {

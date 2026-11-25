@@ -103,14 +103,19 @@ function sacnRender() {
   if (!st.universes.length) {
     sacnEls.universes.innerHTML = found + (st.error ? '' : `<div class="empty-state small">No universes yet. Type the ones to listen to, for example <code>1-8</code>, and click <strong>Listen</strong>.</div>`) + where;
   } else {
-    sacnEls.universes.innerHTML = found + `<div class="sacn-tiles">` + st.universes.map(u => {
+    // A chip per universe, wrapping. The dot is its state; the words are in the
+    // tooltip and, for the one that is picked, beside its number below.
+    sacnEls.universes.innerHTML = found + `<div class="uni-chips sacn-chips">` + st.universes.map(u => {
       const s = sacnSummary(u);
-      return `<button class="sacn-tile sacn-${s.cls}${u.universe === sacnUniverse ? ' active' : ''}" data-universe="${u.universe}" title="Show the levels of universe ${u.universe}">
-        <span class="sacn-tile-num">${u.universe}</span><span class="sacn-tile-text">${s.text}</span></button>`;
+      return `<button class="uni-chip${u.universe === sacnUniverse ? ' active' : ''}" data-universe="${u.universe}" title="Universe ${u.universe}: ${s.text.replace(/"/g, '&quot;')}">
+        <span class="uni-dot ${s.cls}"></span>U${u.universe}</button>`;
     }).join('') + `</div>` + where;
   }
   if (sacnUniverse != null && !st.universes.some(u => u.universe === sacnUniverse)) sacnSelect(null);
+  if (sacnUniverse == null && st.universes.length) sacnSelect(st.universes[0].universe); // one is always shown
   if (sacnUniverse == null) sacnEls.detail.innerHTML = '';
+  const head = document.getElementById('sacnHeadText'), picked = st.universes.find(u => u.universe === sacnUniverse);
+  if (head && picked) { const s = sacnSummary(picked); head.className = 'sacn-head-text sacn-text-' + s.cls; head.innerHTML = s.text; }
 }
 
 function sacnSelect(u) {
@@ -122,7 +127,7 @@ function sacnSelect(u) {
   // The 512 cells are made once; the level poll only changes their numbers.
   let cells = '';
   for (let i = 1; i <= 512; i++) cells += `<div class="sacn-cell"><i>${i}</i><b>·</b></div>`;
-  sacnEls.detail.innerHTML = `<div class="sacn-detail-head">Universe ${u}</div>
+  sacnEls.detail.innerHTML = `<div class="sacn-detail-head">Universe ${u} <span id="sacnHeadText" class="sacn-head-text"></span></div>
     <div id="sacnSources" class="sacn-sources"></div>
     <div id="sacnNote" class="fx-note"></div>
     <div id="sacnGrid" class="sacn-grid">${cells}</div>`;
