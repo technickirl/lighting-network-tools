@@ -115,9 +115,13 @@ puts the levels on its DMX outputs, so treat Start like bringing up a fader on a
 - `POST /api/sacn/out/start`, `/stop`, `/levels`, `/clear`, `/release`, `/fixtures/add`,
   `/fixtures/remove`, `/profiles/save`, `/profiles/delete`; `GET /api/sacn/out` is the whole state.
 
-Checked in dry run and by unit tests that read the packets (25 Nov 2026). **Not yet sent to a
-real node**: the only real transmission so far was all-zero levels on universe 63999 to check the
-socket (`SACN_LIVE_IFACE=<name> go test -run LiveLoopback ./internal/sacn`).
+Sent to real nodes on 25 Nov 2026 (two LumiNode 4s, v2.9.1, ports on sACN U1-4): universe 1 at
+priority 100, all zeros, then channel 1 at 128 for ten seconds. Port 1 of both nodes went from
+`idle` to `streaming` within three seconds and stopped taking frames when the output stopped (see
+`../docs/device-facts.md`). That was driven through the API; the page's own buttons and the
+Fixtures, Profiles and Patch parts have only run in dry run, and nobody has yet watched a fixture
+respond. `SACN_LIVE_IFACE=<name> go test -run LiveLoopback ./internal/sacn` checks the sockets on
+a computer (all-zero levels on universe 63999).
 
 ## Using it from an iPad
 
