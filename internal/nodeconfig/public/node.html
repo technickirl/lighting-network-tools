@@ -1,34 +1,14 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Configure · Luminex Commission</title>
-<link rel="stylesheet" href="nodeconfig.css">
-</head>
-<body>
-
-<header>
-  <div class="logo">LUMI<em>NODE</em> LITE</div>
-  <div class="sp"></div>
-  <div id="dry-badge" style="display:none;margin-right:12px;padding:3px 8px;border-radius:2px;background:#92400e;color:#fff;font-family:var(--ff);font-size:10px;font-weight:600">DRY RUN — nothing is sent</div>
+<!-- The node configure page. It is not a page of its own: the device list's page
+     loads this into its Node view (#nodeHost), then nodeconfig.js and rdm-fixtures.js. -->
+<div class="toolbar">
   <div id="conn-badge">
     <div class="dot" id="dot"></div>
-    <span id="conn-text">DISCONNECTED</span>
+    <span id="conn-text">NO NODE OPEN</span>
   </div>
-</header>
-
-<div class="toolbar">
-  <label>IP</label>
-  <input class="ip" id="ip" type="text" placeholder="192.168.4.55">
-  <button class="btn pri" id="btn-connect">CONNECT</button>
   <button class="btn" id="btn-refresh" disabled>REFRESH</button>
-  <button class="btn sec" id="btn-scan">⊹ SCAN</button>
-  <div class="chips" id="chips"></div>
-  <button class="btn dan" id="btn-clear-all" onclick="clearAllNodes()" title="Remove all saved nodes">✕ CLEAR ALL</button>
 </div>
 
-<div class="main">
+<div class="nc-main">
   <nav>
     <button class="tab" data-tab="quicksetup">⚡ Quick Setup</button>
     <button class="tab active" data-tab="overview">◈ Overview</button>
@@ -70,7 +50,7 @@
       </div>
       <div id="overview-body">
         <div class="empty"><div class="icon">◈</div>
-        <p>Enter a LumiNode IP and click CONNECT</p></div>
+        <p>Pick a node above</p></div>
       </div>
     </div>
 
@@ -317,35 +297,4 @@
   </div>
 </div>
 
-<!-- Scan Modal -->
-<div class="overlay" id="scan-modal">
-  <div class="modal">
-    <div class="modal-head">
-      <div class="modal-title">mDNS NETWORK SCAN</div>
-      <button class="modal-x" id="scan-close">✕</button>
-    </div>
-    <div class="modal-body">
-      <div id="scan-prog-wrap" style="display:none">
-        <div class="prog"><div class="prog-fill" id="scan-bar"></div></div>
-        <div style="font-family:var(--ff);font-size:10px;color:var(--dim);margin-bottom:12px">
-          Querying all network interfaces for LumiNodes...</div>
-      </div>
-      <div id="scan-status" style="font-family:var(--ff);font-size:11px;
-        color:var(--dim);margin-bottom:12px">
-        Sends mDNS queries on all network interfaces simultaneously.
-      </div>
-      <div id="scan-results"></div>
-    </div>
-    <div class="modal-foot">
-      <button class="btn" id="scan-close2">CLOSE</button>
-      <button class="btn sec" id="btn-do-scan">⊹ SCAN</button>
-    </div>
-  </div>
-</div>
-
 <div id="toast"></div>
-
-<script src="nodeconfig.js"></script>
-<script src="rdm-fixtures.js"></script>
-</body>
-</html>

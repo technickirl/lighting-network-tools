@@ -3,18 +3,19 @@
 // ── State ─────────────────────────────────────────────────────────────────────
 let currentIp  = null;
 let ws         = null;
-let nodes      = JSON.parse(localStorage.getItem('ln2_nodes') || '[]');
 let ioFilter   = { cls: 'all', use: 'all', internal: false };
 let lastSnap   = {};
 
 // ── Utilities ─────────────────────────────────────────────────────────────────
-const $ = id => document.getElementById(id);
+// nc$ and not $: this runs in the device list's page, whose own $ throws on a
+// missing element. esc() is that page's too (app.js).
+const nc$ = id => document.getElementById(id);
 
 function toast(msg, err) {
   const el = document.createElement('div');
   el.className = 'toast' + (err ? ' err' : '');
   el.textContent = msg;
-  $('toast').appendChild(el);
+  nc$('toast').appendChild(el);
   setTimeout(() => el.remove(), 3500);
 }
 
@@ -52,8 +53,8 @@ function activityBadge(state) {
 
 // ── Status ─────────────────────────────────────────────────────────────────────
 function setStatus(state) {
-  $('dot').className = 'dot' + (state === 'on' ? ' on' : state === 'err' ? ' err' : '');
-  $('conn-text').textContent = state === 'on' ? `ONLINE  ${currentIp}` :
+  nc$('dot').className = 'dot' + (state === 'on' ? ' on' : state === 'err' ? ' err' : '');
+  nc$('conn-text').textContent = state === 'on' ? `ONLINE  ${currentIp}` :
     state === 'err' ? 'ERROR' : 'DISCONNECTED';
 }
 
@@ -63,7 +64,7 @@ document.querySelectorAll('.tab').forEach(t => {
     document.querySelectorAll('.tab').forEach(x => x.classList.remove('active'));
     document.querySelectorAll('.panel').forEach(x => x.classList.remove('active'));
     t.classList.add('active');
-    $('p-' + t.dataset.tab).classList.add('active');
+    nc$('p-' + t.dataset.tab).classList.add('active');
   };
 });
 
@@ -81,79 +82,28 @@ document.querySelectorAll('[data-iofilter]').forEach(b => {
 function syncIoFilterButtons() {
   document.querySelectorAll('[data-iofilter="class"]').forEach(x => x.classList.toggle('active-tab', x.dataset.val === ioFilter.cls));
   document.querySelectorAll('[data-iofilter="use"]').forEach(x => x.classList.toggle('active-tab', x.dataset.val === ioFilter.use));
-  $('io-internal-toggle').classList.toggle('active-tab', ioFilter.internal);
-}
-
-// ── Chips ──────────────────────────────────────────────────────────────────────
-function renderChips() {
-  $('chips').innerHTML = nodes.map(n =>
-    `<span class="chip${n === currentIp ? ' active' : ''}">
-      <span class="cd"></span>
-      <span onclick="doConnect(this.dataset.ip)" data-ip="${esc(n)}" style="cursor:pointer">${esc(n)}</span>
-      <span onclick="removeNode(this.dataset.ip)" data-ip="${esc(n)}" title="Remove"
-        style="margin-left:4px;color:var(--dim);cursor:pointer;font-size:10px;
-        line-height:1;padding:0 2px" onmouseover="this.style.color='var(--red)'"
-        onmouseout="this.style.color='var(--dim)'">✕</span>
-    </span>`
-  ).join('');
-}
-
-async function removeNode(ip) {
-  // If removing the currently connected node, clear displays first
-  if (ip === currentIp) {
-    clearDisplays();
-    currentIp = null;
-  }
-  // Remove from saved list
-  nodes = nodes.filter(n => n !== ip);
-  localStorage.setItem('ln2_nodes', JSON.stringify(nodes));
-  renderChips();
-  // Clear server cache
-  try { await call(`/api/node/${ip}/cache`, 'DELETE'); } catch (_) {}
-  toast(`${ip} removed`);
-}
-
-async function clearAllNodes() {
-  clearDisplays();
-  currentIp = null;
-  nodes = [];
-  localStorage.setItem('ln2_nodes', JSON.stringify(nodes));
-  renderChips();
-  try { await call('/api/cache', 'DELETE'); } catch (_) {}
-  $('ip').value = '';
-  toast('All nodes cleared');
-}
-
-function saveNode(n) {
-  if (!nodes.includes(n)) { nodes.push(n); localStorage.setItem('ln2_nodes', JSON.stringify(nodes)); }
-  renderChips();
+  nc$('io-internal-toggle').classList.toggle('active-tab', ioFilter.internal);
 }
 
 // ── Connect ────────────────────────────────────────────────────────────────────
-$('btn-connect').onclick = () => {
-  const v = $('ip').value.trim();
-  if (!v) { toast('Enter an IP address', true); return; }
-  doConnect(v);
-};
-$('btn-refresh').onclick = () => currentIp && load(currentIp);
-$('ip').addEventListener('keydown', e => e.key === 'Enter' && $('btn-connect').click());
+nc$('btn-refresh').onclick = () => currentIp && loadNode(currentIp);
 
 function clearDisplays() {
   const empty = msg => `<div class="empty"><div class="icon">◈</div><p>${msg}</p></div>`;
-  $('overview-body').innerHTML  = empty('No device connected');
-  $('pb-body').innerHTML        = empty('No device connected');
-  $('io-body').innerHTML        = empty('No device connected');
-  $('io-count').textContent     = '';
-  $('dmx-body').innerHTML       = empty('No device connected');
-  $('net-body').innerHTML       = empty('No device connected');
-  $('prof-body').innerHTML      = empty('No device connected');
-  $('qs-ports').innerHTML       = empty('Connect to a device first');
-  $('qs-hint').textContent      = 'Connect to a device first.';
-  $('btn-qs-apply').disabled    = true;
-  $('btn-identify').disabled    = true;
-  $('btn-reboot').disabled      = true;
-  $('btn-refresh').disabled     = true;
-  ['live-pb','live-io','live-dmx'].forEach(id => $(id).style.display = 'none');
+  nc$('overview-body').innerHTML  = empty('No device connected');
+  nc$('pb-body').innerHTML        = empty('No device connected');
+  nc$('io-body').innerHTML        = empty('No device connected');
+  nc$('io-count').textContent     = '';
+  nc$('dmx-body').innerHTML       = empty('No device connected');
+  nc$('net-body').innerHTML       = empty('No device connected');
+  nc$('prof-body').innerHTML      = empty('No device connected');
+  nc$('qs-ports').innerHTML       = empty('Connect to a device first');
+  nc$('qs-hint').textContent      = 'Connect to a device first.';
+  nc$('btn-qs-apply').disabled    = true;
+  nc$('btn-identify').disabled    = true;
+  nc$('btn-reboot').disabled      = true;
+  nc$('btn-refresh').disabled     = true;
+  ['live-pb','live-io','live-dmx'].forEach(id => nc$(id).style.display = 'none');
   rdmReset('No device connected');
   window._netCurrent = null;
   window._devCurrent = null;
@@ -168,19 +118,16 @@ function clearDisplays() {
 
 async function doConnect(addr) {
   currentIp = addr;
-  if (startIp) document.title = `${addr} · Configure`; // the tab names the node it shows
-  $('ip').value = addr;
   setStatus('');
-  $('btn-refresh').disabled = true;
-  $('btn-identify').disabled = true;
-  $('btn-reboot').disabled = true;
+  nc$('btn-refresh').disabled = true;
+  nc$('btn-identify').disabled = true;
+  nc$('btn-reboot').disabled = true;
   try {
-    await load(addr);
+    await loadNode(addr);
     setStatus('on');
-    $('btn-refresh').disabled = false;
-    $('btn-identify').disabled = false;
-    $('btn-reboot').disabled = false;
-    saveNode(addr);
+    nc$('btn-refresh').disabled = false;
+    nc$('btn-identify').disabled = false;
+    nc$('btn-reboot').disabled = false;
     startWS(addr);
   } catch (e) {
     setStatus('err');
@@ -200,10 +147,9 @@ async function reconnectWhenBack(addr) {
   doConnect(addr);
 }
 
-async function load(addr) {
+async function loadNode(addr) {
   const d = await call(`/api/node/${addr}/snapshot`);
   lastSnap = d;
-  $('dry-badge').style.display = d.dryRun ? 'block' : 'none';
   if (d.device)        renderOverview(d.device, addr);
   if (d.processBlocks) renderProcessBlocks(d.processBlocks);
   if (d.dmxIOs || d.sacnIOs || d.allIOs) renderIOs(d);
@@ -212,14 +158,14 @@ async function load(addr) {
   if (d.profiles)      renderProfiles(d.profiles);
   if (d.device)        renderQuickSetup(d.device.dmxPorts);
   if (rdm.ip && rdm.ip !== addr) rdmReset('Open this tab again to read RDM');
-  if ($('p-rdm').classList.contains('active')) rdmLoad();
+  if (nc$('p-rdm').classList.contains('active')) rdmLoad();
 }
 
 // ── Renderers ─────────────────────────────────────────────────────────────────
 
 function renderOverview(d, addr) {
   window._devCurrent = d; // Store for network edit modal
-  $('overview-body').innerHTML = `<div class="grid">
+  nc$('overview-body').innerHTML = `<div class="grid">
     ${kcard('Model',          d.model)}
     ${kcard('Short Name',     d.shortName)}
     ${kcard('Long Name',      d.longName)}
@@ -241,10 +187,6 @@ function kcard(label, val, cls) {
       word-break:break-all;color:${cls==='hi'?'var(--cyan)':cls==='ok'?'var(--green)':cls==='err'?'var(--red)':'var(--bright)'}"
     >${esc(val) || '—'}</div>
   </div></div>`;
-}
-
-function esc(v) {
-  return String(v == null ? '' : v).replace(/[&<>"']/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c]));
 }
 
 const MERGE_MODES = ['HTP', 'LTP', 'BACKUP', 'XFADE', 'SWITCH'];
@@ -338,7 +280,7 @@ function pbRow(pb) {
 
 function renderProcessBlocks(list) {
   if (!list || !list.length) {
-    $('pb-body').innerHTML = `<div class="empty"><div class="icon">⚙</div>
+    nc$('pb-body').innerHTML = `<div class="empty"><div class="icon">⚙</div>
       <p>No process blocks found</p></div>`;
     return;
   }
@@ -351,7 +293,7 @@ function renderProcessBlocks(list) {
     html += `<div class="sub-head">${spare.length} UNUSED BLOCK${spare.length === 1 ? '' : 'S'} — MODE NONE, NOTHING ATTACHED<span class="line"></span></div>
       ${spare.map(pbRow).join('')}`;
   }
-  $('pb-body').innerHTML = html;
+  nc$('pb-body').innerHTML = html;
 }
 
 function classBadge(cls) {
@@ -420,20 +362,20 @@ function renderIOs(snap) {
     return true;
   });
   const inUse = all.filter(io => io.inUse && io.ioClass !== 'internal').length;
-  $('io-count').textContent = `${all.length - internal.length} IOs · ${inUse} in use` +
+  nc$('io-count').textContent = `${all.length - internal.length} IOs · ${inUse} in use` +
     (internal.length ? ` · ${internal.length} internal ${ioFilter.internal ? 'shown' : 'hidden'}` : '');
-  $('io-internal-toggle').textContent = `${ioFilter.internal ? 'HIDE' : 'SHOW'} INTERNAL${internal.length ? ` (${internal.length})` : ''}`;
+  nc$('io-internal-toggle').textContent = `${ioFilter.internal ? 'HIDE' : 'SHOW'} INTERNAL${internal.length ? ` (${internal.length})` : ''}`;
 
   if (!all.length) {
-    $('io-body').innerHTML = `<div class="empty"><div class="icon">⬡</div><p>No IOs configured</p></div>`;
+    nc$('io-body').innerHTML = `<div class="empty"><div class="icon">⬡</div><p>No IOs configured</p></div>`;
     return;
   }
   if (!shown.length) {
-    $('io-body').innerHTML = `<div class="empty"><div class="icon">⬡</div><p>No IOs match these filters</p></div>`;
+    nc$('io-body').innerHTML = `<div class="empty"><div class="icon">⬡</div><p>No IOs match these filters</p></div>`;
     return;
   }
   const groupOf = io => IO_GROUPS.some(([k]) => k === io.ioClass) ? io.ioClass : 'other';
-  $('io-body').innerHTML = IO_GROUPS.map(([key, title]) => {
+  nc$('io-body').innerHTML = IO_GROUPS.map(([key, title]) => {
     const items = shown.filter(io => groupOf(io) === key);
     if (!items.length) return '';
     const used = items.filter(io => io.inUse).length;
@@ -444,11 +386,11 @@ function renderIOs(snap) {
 
 function renderDmxPorts(list) {
   if (!list || !list.length) {
-    $('dmx-body').innerHTML = `<div class="empty"><div class="icon">◎</div>
+    nc$('dmx-body').innerHTML = `<div class="empty"><div class="icon">◎</div>
       <p>No DMX port data</p></div>`;
     return;
   }
-  $('dmx-body').innerHTML = `<div class="grid3">${list.map(p => `
+  nc$('dmx-body').innerHTML = `<div class="grid3">${list.map(p => `
     <div class="card">
       <div class="card-head">
         <span class="card-title">DMX PORT ${p.portNumber + 1}</span>
@@ -474,7 +416,7 @@ function renderDmxPorts(list) {
 function renderNetwork(d) {
   // Store current values for the edit modal
   window._netCurrent = d;
-  $('net-body').innerHTML = `
+  nc$('net-body').innerHTML = `
     <div style="margin-bottom:16px">
       <button class="btn pri" onclick="openNetEdit()">✎ EDIT SETTINGS</button>
     </div>
@@ -492,29 +434,29 @@ function openNetEdit() {
   const d = window._netCurrent || {};
   const dev = window._devCurrent || {};
 
-  $('net-long-name').value  = dev.longName  || '';
-  $('net-short-name').value = dev.shortName || '';
-  $('net-ip').value         = d.ip      || '';
-  $('net-mask').value       = d.mask    || '';
-  $('net-gateway').value    = d.gateway || '0.0.0.0';
+  nc$('net-long-name').value  = dev.longName  || '';
+  nc$('net-short-name').value = dev.shortName || '';
+  nc$('net-ip').value         = d.ip      || '';
+  nc$('net-mask').value       = d.mask    || '';
+  nc$('net-gateway').value    = d.gateway || '0.0.0.0';
 
   // Show IP change warning when user edits IP field
-  $('net-ip').oninput = () => {
-    const changed = $('net-ip').value.trim() !== (d.ip || '').trim();
-    $('net-ip-warning').style.display = changed ? 'block' : 'none';
+  nc$('net-ip').oninput = () => {
+    const changed = nc$('net-ip').value.trim() !== (d.ip || '').trim();
+    nc$('net-ip-warning').style.display = changed ? 'block' : 'none';
   };
 
-  $('net-ip-warning').style.display = 'none';
-  $('net-modal').classList.add('open');
+  nc$('net-ip-warning').style.display = 'none';
+  nc$('net-modal').classList.add('open');
 }
 
 function renderProfiles(list) {
   if (!list || !list.length) {
-    $('prof-body').innerHTML = `<div class="empty"><div class="icon">◧</div>
+    nc$('prof-body').innerHTML = `<div class="empty"><div class="icon">◧</div>
       <p>No profiles saved on device</p></div>`;
     return;
   }
-  $('prof-body').innerHTML = `<div class="grid">${list.map(p => `
+  nc$('prof-body').innerHTML = `<div class="grid">${list.map(p => `
     <div class="card"><div class="card-body">
       <div style="font-size:14px;font-weight:600;color:var(--bright);margin-bottom:4px">
         ${esc(p.name)}</div>
@@ -559,7 +501,7 @@ function startWS(addr, again = false) {
   ws.onopen = () => {
     if (again) checkAppVersion();
     ws.send(JSON.stringify({ type: 'subscribe', ip: addr }));
-    ['live-pb','live-io','live-dmx'].forEach(id => $(`${id}`).style.display = 'inline-flex');
+    ['live-pb','live-io','live-dmx'].forEach(id => nc$(`${id}`).style.display = 'inline-flex');
   };
   ws.onmessage = e => {
     try {
@@ -593,7 +535,7 @@ function startWS(addr, again = false) {
     } catch (_) {}
   };
   ws.onclose = () => {
-    ['live-pb','live-io','live-dmx'].forEach(id => $(`${id}`).style.display = 'none');
+    ['live-pb','live-io','live-dmx'].forEach(id => nc$(`${id}`).style.display = 'none');
     if (ws !== me) return; // replaced by a link to another node
     setTimeout(() => {
       if (ws !== me || currentIp !== addr) return;
@@ -619,18 +561,18 @@ function pbById(id) {
 
 function openEditPB(id) {
   const pb = pbById(id);
-  $('pb-modal-title').textContent = `EDIT PROCESS BLOCK ${pb.id}`;
-  $('pb-idx').value       = pb.id;
-  $('pb-name').value      = pb.name || '';
-  $('pb-mode').value      = pb.mode || 'NONE';
-  $('pb-timeout').value   = pb.timeout ?? 1000;
-  $('pb-autorecov').checked = pb.backup;
-  $('pb-ratelimit').checked = pb.ratelimit !== false;
-  $('pb-masterlimit').value = pb.masterlimit || 'NONE';
+  nc$('pb-modal-title').textContent = `EDIT PROCESS BLOCK ${pb.id}`;
+  nc$('pb-idx').value       = pb.id;
+  nc$('pb-name').value      = pb.name || '';
+  nc$('pb-mode').value      = pb.mode || 'NONE';
+  nc$('pb-timeout').value   = pb.timeout ?? 1000;
+  nc$('pb-autorecov').checked = pb.backup;
+  nc$('pb-ratelimit').checked = pb.ratelimit !== false;
+  nc$('pb-masterlimit').value = pb.masterlimit || 'NONE';
   pbEditHasIOs = !!((pb.inputs && pb.inputs.length) || (pb.outputs && pb.outputs.length));
   pbEditSlots = (pb.inputs || []).map(i => i.slot);
   syncModeWarning();
-  $('pb-modal').classList.add('open');
+  nc$('pb-modal').classList.add('open');
 }
 
 // Some modes lose something on the node when saved. Mode NONE clears the block: inputs
@@ -638,43 +580,43 @@ function openEditPB(id) {
 // slots drops the inputs beyond them. Warn in place; Save still fires on the click.
 let pbEditHasIOs = false, pbEditSlots = [];
 function syncModeWarning() {
-  const mode = $('pb-mode').value, limit = slotsFor(mode);
+  const mode = nc$('pb-mode').value, limit = slotsFor(mode);
   const dropped = pbEditSlots.filter(s => s >= limit).map(s => s + 1);
   let text = '';
   if (mode === 'NONE' && pbEditHasIOs) text = "Saving NONE removes this block's inputs and outputs, resets its name and can delete an IO nothing else uses.";
   else if (mode !== 'NONE' && dropped.length) text = `${mode} takes ${limit} input${limit === 1 ? '' : 's'}. Saving drops slot ${dropped.join(', ')}, and changing back won't restore them.`;
-  $('pb-none-warn').textContent = text;
-  $('pb-none-warn').style.display = text ? 'block' : 'none';
+  nc$('pb-none-warn').textContent = text;
+  nc$('pb-none-warn').style.display = text ? 'block' : 'none';
 }
-$('pb-mode').onchange = syncModeWarning;
+nc$('pb-mode').onchange = syncModeWarning;
 
-$('pb-modal-close').onclick =
-$('pb-cancel').onclick = () => $('pb-modal').classList.remove('open');
+nc$('pb-modal-close').onclick =
+nc$('pb-cancel').onclick = () => nc$('pb-modal').classList.remove('open');
 
-$('pb-save').onclick = async () => {
+nc$('pb-save').onclick = async () => {
   if (!currentIp) return;
-  const idx = $('pb-idx').value;
+  const idx = nc$('pb-idx').value;
   const body = {
-    name:               $('pb-name').value,
-    mode:               $('pb-mode').value,
-    timeout:            Number.isNaN(parseInt($('pb-timeout').value)) ? 1000 : parseInt($('pb-timeout').value),
-    backup_auto_recover:$('pb-autorecov').checked,
-    ratelimiting:       $('pb-ratelimit').checked,
-    masterlimit:        $('pb-masterlimit').value,
+    name:               nc$('pb-name').value,
+    mode:               nc$('pb-mode').value,
+    timeout:            Number.isNaN(parseInt(nc$('pb-timeout').value)) ? 1000 : parseInt(nc$('pb-timeout').value),
+    backup_auto_recover:nc$('pb-autorecov').checked,
+    ratelimiting:       nc$('pb-ratelimit').checked,
+    masterlimit:        nc$('pb-masterlimit').value,
   };
   try {
     const res = await call(`/api/node/${currentIp}/processblock/${idx}`, 'PATCH', body);
-    $('pb-modal').classList.remove('open');
+    nc$('pb-modal').classList.remove('open');
     applyState(res);
     toast('Process block updated');
   } catch (e) { toast('Save failed: ' + e.message, true); }
 };
 
-$('pb-clear').onclick = async () => {
-  const idx = $('pb-idx').value;
+nc$('pb-clear').onclick = async () => {
+  const idx = nc$('pb-idx').value;
   try {
     const res = await call(`/api/node/${currentIp}/processblock/${idx}`, 'DELETE');
-    $('pb-modal').classList.remove('open');
+    nc$('pb-modal').classList.remove('open');
     applyState(res);
     toast(`Process block ${idx} cleared`);
   } catch (e) { toast('Clear failed: ' + e.message, true); }
@@ -694,93 +636,33 @@ async function recallProfile(id, keepIp) {
     toast(`Recalling profile ${id}${keepIp ? ' (keeping IP settings)' : ''}…`);
     await call(`/api/node/${currentIp}/profile/${id}/recall`, 'POST', { keep_ip_settings: keepIp });
     toast(`Profile ${id} recalled — refreshing...`);
-    setTimeout(() => load(currentIp), 1500);
+    setTimeout(() => loadNode(currentIp), 1500);
   } catch (e) { toast('Recall failed: ' + e.message, true); }
 }
 
 // ── Identify / Reboot ──────────────────────────────────────────────────────────
-$('btn-identify').onclick = async () => {
+nc$('btn-identify').onclick = async () => {
   try {
     await call(`/api/node/${currentIp}/identify`, 'POST');
     toast('Identify triggered — check device LEDs');
   } catch (e) { toast('Failed: ' + e.message, true); }
 };
 
-$('btn-reboot').onclick = async () => {
+nc$('btn-reboot').onclick = async () => {
   try {
     await call(`/api/node/${currentIp}/reboot`, 'POST');
     toast('Reboot command sent');
     setStatus('');
-    $('btn-refresh').disabled = true;
+    nc$('btn-refresh').disabled = true;
   } catch (e) { toast('Failed: ' + e.message, true); }
 };
-
-// ── mDNS Scan ──────────────────────────────────────────────────────────────────
-$('btn-scan').onclick    = () => { resetScan(); $('scan-modal').classList.add('open'); };
-$('scan-close').onclick  =
-$('scan-close2').onclick = () => $('scan-modal').classList.remove('open');
-
-function resetScan() {
-  $('scan-results').innerHTML = '';
-  $('scan-prog-wrap').style.display = 'none';
-  $('scan-bar').style.width = '0%';
-  $('scan-status').textContent = 'Scanning all interfaces…';
-  $('btn-do-scan').disabled = false;
-  $('btn-do-scan').textContent = '⊹ SCAN';
-}
-
-$('btn-do-scan').onclick = async () => {
-  $('btn-do-scan').disabled = true;
-  $('btn-do-scan').innerHTML = '<span class="spin"></span> SCANNING...';
-  $('scan-prog-wrap').style.display = 'block';
-  $('scan-status').innerHTML = '<span class="spin"></span>&nbsp; Scanning for LumiNodes...';
-  $('scan-results').innerHTML = '';
-  // ARP scan is fast — just show indeterminate state
-  $('scan-bar').style.width = '60%';
-
-  try {
-    const d = await call('/api/discover');
-    const { devices, scanned } = d;
-    if (!devices.length) {
-      $('scan-status').textContent = `${scanned} HTTP service(s) found — none confirmed as LumiNodes.`;
-      $('scan-results').innerHTML = `<div class="empty" style="padding:20px">
-        <div class="icon">⊹</div>
-        <p>No LumiNodes found.<br>Check subnet and firewall.</p></div>`;
-    } else {
-      $('scan-status').textContent = `Found ${devices.length} LumiNode${devices.length > 1 ? 's' : ''}.`;
-      $('scan-results').innerHTML = devices.map(d => `
-        <div class="scan-card">
-          <div class="scan-info">
-            <div class="scan-model">${esc(d.model)} — ${esc(d.name)}</div>
-            <div class="scan-detail">Serial: ${esc(d.serial)}</div>
-          </div>
-          <span class="scan-ip">${esc(d.ip)}</span>
-          <button class="btn sm pri" onclick="connectFromScan(this.dataset.ip)" data-ip="${esc(d.ip)}">CONNECT</button>
-        </div>`).join('');
-      devices.forEach(d => saveNode(d.ip));
-    }
-  } catch (e) {
-    $('scan-status').textContent = 'Scan failed: ' + e.message;
-    toast('Scan failed', true);
-  } finally {
-    $('scan-prog-wrap').style.display = 'none';
-    $('btn-do-scan').disabled = false;
-    $('btn-do-scan').textContent = '⊹ SCAN AGAIN';
-  }
-};
-
-function connectFromScan(addr) {
-  $('scan-modal').classList.remove('open');
-  doConnect(addr);
-}
-
 
 // ── Quick Setup ───────────────────────────────────────────────────────────────
 let numDmxPorts = 4; // updated from device info on connect
 
 function renderQuickSetup(n) {
   numDmxPorts = n || numDmxPorts;
-  const container = $('qs-ports');
+  const container = nc$('qs-ports');
   if (!currentIp) {
     container.innerHTML = '<div class="empty"><div class="icon">⚡</div><p>Connect to a device first.</p></div>';
     return;
@@ -820,13 +702,13 @@ function renderQuickSetup(n) {
     </div>`;
   }).join('');
 
-  $('btn-qs-apply').disabled = false;
-  $('qs-hint').textContent = 'All ports will be configured immediately.';
+  nc$('btn-qs-apply').disabled = false;
+  nc$('qs-hint').textContent = 'All ports will be configured immediately.';
 }
 
 function validateQSPort(portNum) {
-  const val = parseInt($(`qs-uni-${portNum}`).value);
-  const status = $(`qs-status-${portNum}`);
+  const val = parseInt(nc$(`qs-uni-${portNum}`).value);
+  const status = nc$(`qs-status-${portNum}`);
   if (!val || val < 1 || val > 63999) {
     status.textContent = 'Universe must be 1–63999';
     status.className = 'qs-status err';
@@ -836,13 +718,13 @@ function validateQSPort(portNum) {
   }
 }
 
-$('btn-qs-apply').onclick = async () => {
-  const btn = $('btn-qs-apply');
+nc$('btn-qs-apply').onclick = async () => {
+  const btn = nc$('btn-qs-apply');
 
   // Collect port configs — skip any with blank universe
   const ports = [];
   for (let i = 1; i <= numDmxPorts; i++) {
-    const val = parseInt($(`qs-uni-${i}`) ? $(`qs-uni-${i}`).value : '');
+    const val = parseInt(nc$(`qs-uni-${i}`) ? nc$(`qs-uni-${i}`).value : '');
     if (val && val >= 1 && val <= 63999) ports.push({ port: i, universe: val });
   }
 
@@ -850,7 +732,7 @@ $('btn-qs-apply').onclick = async () => {
 
   btn.disabled = true;
   btn.textContent = '⚡ APPLYING...';
-  $('qs-hint').textContent = `Configuring ${ports.length} port(s)...`;
+  nc$('qs-hint').textContent = `Configuring ${ports.length} port(s)...`;
 
   try {
     const res = await call(`/api/node/${currentIp}/quicksetup`, 'POST', { ports });
@@ -870,7 +752,7 @@ $('btn-qs-apply').onclick = async () => {
     // Mark each port status
     ports.forEach(({ port, universe }) => {
       const failed = (res.errors || []).some(e => e.startsWith(`Port ${port}`));
-      const status = $(`qs-status-${port}`);
+      const status = nc$(`qs-status-${port}`);
       if (status) {
         status.textContent = failed ? 'Failed — check console' : `✓ Configured U${universe}`;
         status.className = 'qs-status ' + (failed ? 'err' : 'ok');
@@ -881,7 +763,7 @@ $('btn-qs-apply').onclick = async () => {
 
   } catch (e) {
     toast('Apply failed: ' + e.message, true);
-    $('qs-hint').textContent = 'Error — check console window.';
+    nc$('qs-hint').textContent = 'Error — check console window.';
   } finally {
     btn.disabled = false;
     btn.textContent = '⚡ APPLY';
@@ -891,8 +773,8 @@ $('btn-qs-apply').onclick = async () => {
 
 // ── Set Input Modal ───────────────────────────────────────────────────────────
 
-$('input-modal-close').onclick =
-$('input-cancel').onclick = () => $('input-modal').classList.remove('open');
+nc$('input-modal-close').onclick =
+nc$('input-cancel').onclick = () => nc$('input-modal').classList.remove('open');
 
 // A block's wiring: one row per input slot (four in a merge mode, one otherwise) and
 // its outputs, which can be a network universe or a DMX port and can be several.
@@ -966,24 +848,24 @@ function syncWireRow(sel) {
 function openSetInput(id) {
   const pb = pbById(id);
   wiringBlock = pb.id;
-  $('input-modal-title').textContent = `INPUTS / OUTPUTS — PB ${pb.id} ${pb.name || ''}`;
+  nc$('input-modal-title').textContent = `INPUTS / OUTPUTS — PB ${pb.id} ${pb.name || ''}`;
   const inputs = pb.inputs || [];
   const bySlot = {};
   inputs.forEach(i => bySlot[i.slot] = i);
   const limit = slotsFor(pb.mode);
   const nSlots = Math.max(limit, ...inputs.map(i => i.slot + 1));
-  $('wire-inputs').innerHTML = Array.from({ length: nSlots }, (_, n) => inputRowHtml(n, bySlot[n])).join('');
-  $('wire-mode-note').textContent = limit > 1
+  nc$('wire-inputs').innerHTML = Array.from({ length: nSlots }, (_, n) => inputRowHtml(n, bySlot[n])).join('');
+  nc$('wire-mode-note').textContent = limit > 1
     ? `Mode ${pb.mode} takes ${limit} inputs. Change the mode with EDIT.`
     : `Mode ${pb.mode} takes one input. For more, choose a mode with EDIT first: BACKUP or XFADE take 2; HTP, LTP, SWITCH or CUSTOM take 4.`;
-  $('wire-outputs').innerHTML = (pb.outputs || []).map(o => `<div class="wire-row" data-output="${o.id}">
+  nc$('wire-outputs').innerHTML = (pb.outputs || []).map(o => `<div class="wire-row" data-output="${o.id}">
       <span class="wire-out-name">${esc(o.label)}</span>
       <button class="btn sm dan" type="button" onclick="toggleRemoveOutput(this)" title="Take this output off the block">REMOVE</button>
     </div>`).join('') || '<div class="wire-none" id="wire-no-outputs">No output yet</div>';
   const roles = controlRoles(pb);
-  $('wire-controls').innerHTML = roles.map(r => controlRowHtml(pb, r)).join('') || `<div class="wire-none">Mode ${esc(pb.mode)} has no control. MASTER / LIMIT in EDIT adds one.</div>`;
+  nc$('wire-controls').innerHTML = roles.map(r => controlRowHtml(pb, r)).join('') || `<div class="wire-none">Mode ${esc(pb.mode)} has no control. MASTER / LIMIT in EDIT adds one.</div>`;
   document.querySelectorAll('#wire-inputs .wire-kind, #wire-controls .wire-kind').forEach(syncWireRow);
-  $('input-modal').classList.add('open');
+  nc$('input-modal').classList.add('open');
 }
 
 function toggleRemoveOutput(btn) {
@@ -992,11 +874,11 @@ function toggleRemoveOutput(btn) {
   btn.textContent = removing ? 'KEEP' : 'REMOVE';
 }
 
-$('wire-add-output').onclick = () => {
-  const none = $('wire-no-outputs');
+nc$('wire-add-output').onclick = () => {
+  const none = nc$('wire-no-outputs');
   if (none) none.remove();
-  $('wire-outputs').insertAdjacentHTML('beforeend', addedOutputRowHtml());
-  syncWireRow($('wire-outputs').lastElementChild.querySelector('.wire-kind'));
+  nc$('wire-outputs').insertAdjacentHTML('beforeend', addedOutputRowHtml());
+  syncWireRow(nc$('wire-outputs').lastElementChild.querySelector('.wire-kind'));
 };
 
 // What the dialog changed; throws with the reason if a row is not valid.
@@ -1038,15 +920,15 @@ function wiringChanges() {
   return { inputs, removeOutputs, addOutputs, controls };
 }
 
-$('input-save').onclick = async () => {
+nc$('input-save').onclick = async () => {
   if (!currentIp) { toast('No device connected', true); return; }
   let changes;
   try { changes = wiringChanges(); } catch (e) { toast(e.message, true); return; }
   if (!changes.inputs.length && !changes.removeOutputs.length && !changes.addOutputs.length && !changes.controls.length) {
-    $('input-modal').classList.remove('open');
+    nc$('input-modal').classList.remove('open');
     return;
   }
-  const btn = $('input-save');
+  const btn = nc$('input-save');
   btn.disabled = true;
   btn.textContent = 'SAVING...';
   try {
@@ -1057,7 +939,7 @@ $('input-save').onclick = async () => {
       res.errors.forEach(e => toast(e, true));
       openSetInput(wiringBlock); // show what the node has now
     } else {
-      $('input-modal').classList.remove('open');
+      nc$('input-modal').classList.remove('open');
       toast(`PB${wiringBlock} inputs and outputs updated`);
     }
   } catch (e) {
@@ -1071,17 +953,17 @@ $('input-save').onclick = async () => {
 
 // ── Network Edit Modal ────────────────────────────────────────────────────────
 
-$('net-modal-close').onclick =
-$('net-cancel').onclick = () => $('net-modal').classList.remove('open');
+nc$('net-modal-close').onclick =
+nc$('net-cancel').onclick = () => nc$('net-modal').classList.remove('open');
 
-$('net-save').onclick = async () => {
+nc$('net-save').onclick = async () => {
   if (!currentIp) return;
 
-  const longName  = $('net-long-name').value.trim();
-  const shortName = $('net-short-name').value.trim();
-  const newIp     = $('net-ip').value.trim();
-  const netmask   = $('net-mask').value.trim();
-  const gateway   = $('net-gateway').value.trim() || '0.0.0.0';
+  const longName  = nc$('net-long-name').value.trim();
+  const shortName = nc$('net-short-name').value.trim();
+  const newIp     = nc$('net-ip').value.trim();
+  const netmask   = nc$('net-mask').value.trim();
+  const gateway   = nc$('net-gateway').value.trim() || '0.0.0.0';
   const ipChanged = newIp !== ((window._netCurrent || {}).ip || '').trim();
 
   // Basic IP validation
@@ -1089,7 +971,7 @@ $('net-save').onclick = async () => {
   if (!ipRe.test(newIp))  { toast('Invalid IP address', true); return; }
   if (!ipRe.test(netmask)){ toast('Invalid netmask', true); return; }
 
-  const btn = $('net-save');
+  const btn = nc$('net-save');
   btn.disabled = true;
   btn.textContent = 'APPLYING...';
 
@@ -1104,11 +986,11 @@ $('net-save').onclick = async () => {
       toast('Device name updated');
     }
 
-    // Opened from the device list: a job makes the change, mDNS confirms it, and
+    // A node from the device list: a job makes the change, mDNS confirms it, and
     // followDevice() brings this page to the new address.
-    if (ipChanged && startId) {
-      await call('/api/apply', 'POST', { items: [{ id: startId, newIp }], netmask, gateway });
-      $('net-modal').classList.remove('open');
+    if (ipChanged && followId) {
+      await call('/api/apply', 'POST', { items: [{ id: followId, newIp }], netmask, gateway });
+      nc$('net-modal').classList.remove('open');
       toast(`Changing address to ${newIp}…`);
       return;
     }
@@ -1120,7 +1002,7 @@ $('net-save').onclick = async () => {
       gateway,
     });
 
-    $('net-modal').classList.remove('open');
+    nc$('net-modal').classList.remove('open');
 
     if (ipChanged) {
       toast(`IP changed to ${newIp} — waiting for it to come back...`);
@@ -1128,7 +1010,7 @@ $('net-save').onclick = async () => {
       reconnectWhenBack(newIp);
     } else {
       toast('Network settings applied');
-      await load(currentIp);
+      await loadNode(currentIp);
     }
 
   } catch (e) {
@@ -1144,13 +1026,13 @@ $('net-save').onclick = async () => {
 
 async function renderStartup() {
   if (!currentIp || !lastSnap.processBlocks) {
-    $('startup-body').innerHTML = `<div class="empty"><div class="icon">⊡</div>
+    nc$('startup-body').innerHTML = `<div class="empty"><div class="icon">⊡</div>
       <p>No device connected</p></div>`;
-    $('btn-apply-all-startup').disabled = true;
+    nc$('btn-apply-all-startup').disabled = true;
     return;
   }
 
-  $('btn-apply-all-startup').disabled = false;
+  nc$('btn-apply-all-startup').disabled = false;
 
   // Fetch playlist data for each process block in parallel
   const pbs = lastSnap.processBlocks.filter(pb => pb.mode !== 'NONE' || pb.name !== `Process Block ${pb.id}`);
@@ -1161,7 +1043,7 @@ async function renderStartup() {
     allPbs.map(pb => call(`/api/node/${currentIp}/startup/${pb.id}/snapshots`))
   );
 
-  $('startup-body').innerHTML = `<div class="grid2">${allPbs.map((pb, i) => {
+  nc$('startup-body').innerHTML = `<div class="grid2">${allPbs.map((pb, i) => {
     const playlist = playlistResults[i].status === 'fulfilled'
       ? playlistResults[i].value.playlist : null;
     const snapshots = playlist ? (playlist.snapshots || []) : [];
@@ -1205,7 +1087,7 @@ async function renderStartup() {
 }
 
 async function loadStartupStatus(pbIdx) {
-  const el = $(`startup-status-${pbIdx}`);
+  const el = nc$(`startup-status-${pbIdx}`);
   if (!el) return;
   try {
     const d = await call(`/api/node/${currentIp}/processblock/${pbIdx}/raw`);
@@ -1220,15 +1102,15 @@ async function loadStartupStatus(pbIdx) {
 }
 
 async function applyStartupBuffer(pbIdx) {
-  const snapEl = $(`startup-snap-${pbIdx}`);
+  const snapEl = nc$(`startup-snap-${pbIdx}`);
   if (!snapEl || !snapEl.value) { toast('No snapshot selected', true); return; }
 
   const snapshotId = snapEl.value;
   try {
     const res = await call(`/api/node/${currentIp}/startup/${pbIdx}/apply`, 'POST', { snapshotId });
     toast(`PB${pbIdx}: startup buffer set (${res.channels} channels)`);
-    $(`startup-status-${pbIdx}`).textContent = `${res.channels} channels`;
-    $(`startup-status-${pbIdx}`).style.color = 'var(--green)';
+    nc$(`startup-status-${pbIdx}`).textContent = `${res.channels} channels`;
+    nc$(`startup-status-${pbIdx}`).style.color = 'var(--green)';
   } catch (e) {
     toast(`PB${pbIdx} failed: ${e.message}`, true);
   }
@@ -1238,26 +1120,26 @@ async function clearStartupBuffer(pbIdx) {
   try {
     await call(`/api/node/${currentIp}/startup/${pbIdx}`, 'DELETE');
     toast(`PB${pbIdx}: startup buffer cleared`);
-    $(`startup-status-${pbIdx}`).textContent = 'Empty';
-    $(`startup-status-${pbIdx}`).style.color = 'var(--dim)';
+    nc$(`startup-status-${pbIdx}`).textContent = 'Empty';
+    nc$(`startup-status-${pbIdx}`).style.color = 'var(--dim)';
   } catch (e) {
     toast(`Failed: ${e.message}`, true);
   }
 }
 
-$('btn-apply-all-startup').onclick = async () => {
+nc$('btn-apply-all-startup').onclick = async () => {
   if (!lastSnap.processBlocks) return;
   const pbs = lastSnap.processBlocks;
   let applied = 0, failed = 0;
 
   for (const pb of pbs) {
-    const snapEl = $(`startup-snap-${pb.id}`);
+    const snapEl = nc$(`startup-snap-${pb.id}`);
     if (!snapEl || !snapEl.value) continue;
     try {
       const res = await call(`/api/node/${currentIp}/startup/${pb.id}/apply`, 'POST',
         { snapshotId: snapEl.value });
-      $(`startup-status-${pb.id}`).textContent = `${res.channels} channels`;
-      $(`startup-status-${pb.id}`).style.color = 'var(--green)';
+      nc$(`startup-status-${pb.id}`).textContent = `${res.channels} channels`;
+      nc$(`startup-status-${pb.id}`).style.color = 'var(--green)';
       applied++;
     } catch (e) {
       failed++;
@@ -1286,12 +1168,12 @@ function rdmReset(msg) {
   if (typeof rdmFollowRelease === 'function') rdmFollowRelease(); // IDs Follow ID turned on go off before the state goes
   rdm = { ip: null, ports: [], artnet: null, dry: false, read: {}, busy: {}, confirm: null, edit: null, fxBusy: {},
     sel: null, panel: null, pick: null, batch: null, fxStatus: {}, view: rdm.view };
-  rdmPaint($('rdm-body'), `<div class="empty"><div class="icon">✳</div><p>${esc(msg)}</p></div>`);
+  rdmPaint(nc$('rdm-body'), `<div class="empty"><div class="icon">✳</div><p>${esc(msg)}</p></div>`);
   rdmPaint(rdmKeypadHost(), '');
-  $('rdm-banner').style.display = 'none';
-  $('btn-rdm-read-all').disabled = true;
-  $('btn-rdm-read-all').title = 'Connect to a device first';
-  $('btn-rdm-csv').disabled = true;
+  nc$('rdm-banner').style.display = 'none';
+  nc$('btn-rdm-read-all').disabled = true;
+  nc$('btn-rdm-read-all').title = 'Connect to a device first';
+  nc$('btn-rdm-csv').disabled = true;
 }
 
 async function rdmLoad() {
@@ -1304,7 +1186,7 @@ async function rdmLoad() {
     rdmApply(d);
     if (d.state) rdmApplyShared(d.state);
   } catch (e) {
-    if (ip === currentIp) rdmPaint($('rdm-body'), `<div class="empty"><div class="icon">✳</div><p>Cannot read RDM: ${esc(e.message)}</p></div>`);
+    if (ip === currentIp) rdmPaint(nc$('rdm-body'), `<div class="empty"><div class="icon">✳</div><p>Cannot read RDM: ${esc(e.message)}</p></div>`);
     return;
   }
   rdmAutoRead(ip);
@@ -1372,31 +1254,31 @@ function rdmPaint(el, html) {
 // The keypad lives in its own element beside the RDM body, so redrawing the
 // tiles never touches it.
 function rdmKeypadHost() {
-  let h = $('rdm-kp-host');
+  let h = nc$('rdm-kp-host');
   if (!h) {
     h = document.createElement('div');
     h.id = 'rdm-kp-host';
-    $('rdm-body').insertAdjacentElement('afterend', h);
+    nc$('rdm-body').insertAdjacentElement('afterend', h);
   }
   return h;
 }
 
 function renderRdm() {
   const a = rdm.artnet;
-  $('rdm-banner').textContent = a && !a.ok ? `${a.error}. Fixtures come from what the node has overheard instead, which can be incomplete.` : '';
-  $('rdm-banner').style.display = a && !a.ok ? 'block' : 'none';
+  nc$('rdm-banner').textContent = a && !a.ok ? `${a.error}. Fixtures come from what the node has overheard instead, which can be incomplete.` : '';
+  nc$('rdm-banner').style.display = a && !a.ok ? 'block' : 'none';
   const anyOn = rdm.ports.some(p => p.rdm);
-  $('btn-rdm-read-all').disabled = !anyOn;
-  $('btn-rdm-read-all').title = anyOn ? 'Read the fixtures on every port with RDM on' : 'Turn RDM on for a port first';
+  nc$('btn-rdm-read-all').disabled = !anyOn;
+  nc$('btn-rdm-read-all').title = anyOn ? 'Read the fixtures on every port with RDM on' : 'Turn RDM on for a port first';
   const anyRead = Object.values(rdm.read).some(r => r.fixtures.length);
-  $('btn-rdm-csv').disabled = !anyRead;
-  $('btn-rdm-csv').title = anyRead ? 'Save every fixture read so far as a CSV file' : 'Read some fixtures first';
+  nc$('btn-rdm-csv').disabled = !anyRead;
+  nc$('btn-rdm-csv').title = anyRead ? 'Save every fixture read so far as a CSV file' : 'Read some fixtures first';
   if (!rdm.ports.length) {
-    rdmPaint($('rdm-body'), `<div class="empty"><div class="icon">✳</div><p>This node has no DMX ports</p></div>`);
+    rdmPaint(nc$('rdm-body'), `<div class="empty"><div class="icon">✳</div><p>This node has no DMX ports</p></div>`);
     rdmPaint(rdmKeypadHost(), '');
     return;
   }
-  rdmPaint($('rdm-body'), `<div class="rdm-layout${rdm.panel ? ' with-side' : ''}">
+  rdmPaint(nc$('rdm-body'), `<div class="rdm-layout${rdm.panel ? ' with-side' : ''}">
     <div class="rdm-ports">${rdm.ports.map(rdmPortHtml).join('')}</div>${rdmPanelHtml()}</div>`);
   rdmPaint(rdmKeypadHost(), rdmKeypadHtml());
   if (typeof rdmAfterRender === 'function') rdmAfterRender();
@@ -1581,12 +1463,12 @@ function rdmEditField(k, v, typing) {
   const port = rdm.edit.port, fixtures = rdm.read[port].fixtures, f = rdmFind(port, rdm.edit.uid);
   const tmp = document.createElement('tbody');
   tmp.innerHTML = rdmEditRow(port, f, fixtures, 1);
-  if (!$('rdm-e-warn')) return;
-  $('rdm-e-warn').textContent = tmp.querySelector('#rdm-e-warn').textContent;
+  if (!nc$('rdm-e-warn')) return;
+  nc$('rdm-e-warn').textContent = tmp.querySelector('#rdm-e-warn').textContent;
   document.querySelector('.rdm-edit-range').textContent = tmp.querySelector('.rdm-edit-range').textContent;
   const save = tmp.querySelector('#rdm-e-save');
-  $('rdm-e-save').disabled = save.disabled;
-  $('rdm-e-save').title = save.title;
+  nc$('rdm-e-save').disabled = save.disabled;
+  nc$('rdm-e-save').title = save.title;
 }
 
 function rdmEditClose() { rdm.edit = null; renderRdm(); }
@@ -1755,7 +1637,7 @@ async function rdmDiscover(port) {
   if (await rdmWaitRediscover(port, before, 25000) && ip === currentIp) rdmRead(port);
 }
 
-$('btn-rdm-read-all').onclick = async () => {
+nc$('btn-rdm-read-all').onclick = async () => {
   for (const p of rdm.ports.filter(p => p.rdm)) await rdmRead(p.port);
 };
 
@@ -1764,7 +1646,7 @@ function csvCell(v) {
   return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
 }
 
-$('btn-rdm-csv').onclick = () => {
+nc$('btn-rdm-csv').onclick = () => {
   const dev = window._devCurrent || {};
   const node = dev.shortName || dev.longName || currentIp;
   const head = ['Node', 'Node IP', 'Port', 'Art-Net', 'Address', 'Channels', 'Personality', 'Personality name', 'Manufacturer',
@@ -1789,23 +1671,23 @@ document.querySelectorAll('.tab').forEach(t => {
 
 // ── Password ───────────────────────────────────────────────────────────────────
 function openPassword() {
-  $('pw-error').style.display = 'none';
-  $('pw-pass').value = '';
-  $('pw-modal').classList.add('open');
+  nc$('pw-error').style.display = 'none';
+  nc$('pw-pass').value = '';
+  nc$('pw-modal').classList.add('open');
 }
-$('pw-modal-close').onclick = $('pw-cancel').onclick = () => $('pw-modal').classList.remove('open');
-$('pw-save').onclick = async () => {
+nc$('pw-modal-close').onclick = nc$('pw-cancel').onclick = () => nc$('pw-modal').classList.remove('open');
+nc$('pw-save').onclick = async () => {
   const r = await fetch(`/api/node/${currentIp}/password`, {
     method: 'POST', headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ username: $('pw-user').value, password: $('pw-pass').value }),
+    body: JSON.stringify({ username: nc$('pw-user').value, password: nc$('pw-pass').value }),
   });
   if (r.ok) {
-    $('pw-modal').classList.remove('open');
+    nc$('pw-modal').classList.remove('open');
     doConnect(currentIp);
     return;
   }
-  $('pw-error').textContent = r.status === 401 ? 'That password was rejected. Try again.' : 'The device did not answer.';
-  $('pw-error').style.display = 'block';
+  nc$('pw-error').textContent = r.status === 401 ? 'That password was rejected. Try again.' : 'The device did not answer.';
+  nc$('pw-error').style.display = 'block';
 };
 
 // ── Following a device through a job ───────────────────────────────────────────
@@ -1830,23 +1712,27 @@ function applyLock() {
 new MutationObserver(() => { if (lockWhy) applyLock(); }).observe(document.body, { childList: true, subtree: true });
 
 function setBanner(text) {
-  $('follow-banner').textContent = text;
-  $('follow-banner').style.display = text ? 'block' : 'none';
+  nc$('follow-banner').textContent = text;
+  nc$('follow-banner').style.display = text ? 'block' : 'none';
 }
 
+// followId is the device list's id for the node that is open (null for a node
+// opened by address alone). The loop runs for as long as the page is open.
+let followId = null;
 async function followDevice() {
-  try {
-    const r = await fetch(`/api/device/${encodeURIComponent(startId)}`);
-    if (r.ok) applyFollow(await r.json());
-  } catch (_) {}
+  const id = followId;
+  if (id) {
+    try {
+      const r = await fetch(`/api/device/${encodeURIComponent(id)}`);
+      if (r.ok && id === followId) applyFollow(await r.json());
+    } catch (_) {}
+  }
   setTimeout(followDevice, 1500);
 }
 
 // followIp is where the followed device was last seen. The page moves with the
-// device only when the device itself moves and the page is still on it: picking
-// another node (a chip, CONNECT, the scan) is left alone, and its lock and
-// banner are not this page's business while it is elsewhere.
-let followIp = null; // set at start-up, from ?ip=
+// device only when the device itself moves and the page is still on it.
+let followIp = null; // set by ncOpen
 
 function applyFollow(d) {
   const moved = d.known && d.ip && d.ip !== followIp, onIt = currentIp === followIp;
@@ -1863,14 +1749,11 @@ function applyFollow(d) {
   if (!d.reachable) { setBanner(`This device is now at ${d.ip}. ${d.reachReason || 'This computer cannot reach it.'}`); return; }
   followIp = d.ip;
   toast(`This device is now at ${d.ip}`);
-  const q = new URLSearchParams({ ip: d.ip, id: startId });
-  history.replaceState(null, '', `?${q}`);
-  document.title = `${d.ip} · Configure`;
+  window.dispatchEvent(new CustomEvent('nc-moved', { detail: { id: followId, ip: d.ip } })); // the hosting page keeps its address
   doConnect(d.ip);
 }
 
 // ── Init ───────────────────────────────────────────────────────────────────────
-renderChips();
 // Back on the tab the page was on before it reloaded for a new app version.
 try {
   const t = sessionStorage.getItem('nc_tab');
@@ -1878,15 +1761,17 @@ try {
   const el = t && document.querySelector(`.tab[data-tab="${t}"]`);
   if (el) el.click();
 } catch (_) {}
-// Opened from a device list: ?ip=<address> connects straight away, and ?id=<device>
-// keeps this page on that device if a job moves it.
-const startParams = new URLSearchParams(location.search);
-const startIp = startParams.get('ip'), startId = startParams.get('id');
-followIp = startIp;
-if (startIp) {
-  document.title = `${startIp} · Configure`;
-  doConnect(startIp);
-} else if (nodes.length) {
-  $('ip').value = nodes[nodes.length - 1];
+// ncOpen is how the hosting page shows a node: its address, and the device
+// list's id so the page stays on that device if a job moves it. Opening the node
+// that is already open does nothing, so what is on the page stays; one that did
+// not answer is tried again.
+function ncOpen(ip, id) {
+  if (ip === currentIp && (id || null) === followId && lastSnap.device) return;
+  followId = id || null;
+  followIp = ip;
+  lockWhy = '';
+  applyLock();
+  setBanner('');
+  doConnect(ip);
 }
-if (startId) followDevice();
+followDevice();

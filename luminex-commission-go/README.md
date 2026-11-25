@@ -20,6 +20,8 @@ can re-address the system. A device Scan is not finding can be added by address 
 Paired or Sequence, with its third octet, start and name prefix), what to apply
 (addresses, device names, LED, web password off), ticks, Apply settings and Factory reset. A page reload stays on the view you were on; a new tab opens on Configure.
 
+**Node** is one node's configure page, with a chip for every LumiNode in the device list along the top (they wrap onto more rows on a big rig). Click a chip to switch node: the tab you were on (RDM, say) stays. A chip's dot is green when the node can be opened, amber while a job has it and red when it cannot be opened, with the reason in its tooltip. The open node is kept in the page's address, so a reload or a bookmark comes back to it.
+
 **Groups** reads each GigaCore Gen1's groups (Luminex's name for VLANs): name, VLAN ID, and the ports in each,
 with the colour the switch gives each group (`POST /api/groups/read` sends GET requests to `/config/groups` and
 `/config/ports`). **Name groups** sets names for groups 2 and up on the ticked switches (1 to 16 letters, numbers,
@@ -248,7 +250,7 @@ node, ticked or not.
   has been swapped out and left the scan list. It uses the device's current address
   if it is on the list, otherwise the last address it was given.
 
-Each device opens in its own browser tab, and clicking again returns to that tab.
+Each device opens on the **Node** tab of the same page (before 2.0.0 it was a browser tab of its own; an old `/configure/?ip=…` address still lands on that node).
 The button is disabled, with a tooltip saying why, for a switch, a device in a
 running job, a dry-run entry, or an address no adapter on this computer can reach.
 

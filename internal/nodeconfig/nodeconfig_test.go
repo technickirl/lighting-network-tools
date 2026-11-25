@@ -39,19 +39,22 @@ func TestPageLoadsItsScriptAndStyles(t *testing.T) {
 		}
 		return string(b)
 	}
-	page := get("/")
-	for _, want := range []string{`href="nodeconfig.css"`, `src="nodeconfig.js"`, `data-tab="processblocks"`, `id="btn-connect"`} {
+	page := get("/node.html")
+	for _, want := range []string{`class="nc-main"`, `data-tab="processblocks"`, `id="btn-refresh"`, `id="toast"`} {
 		if !strings.Contains(page, want) {
 			t.Errorf("page has no %s", want)
 		}
 	}
-	if !strings.Contains(get("/nodeconfig.js"), "function renderProcessBlocks") {
-		t.Error("script missing renderProcessBlocks")
+	script := get("/nodeconfig.js")
+	for _, want := range []string{"function renderProcessBlocks", "function ncOpen"} {
+		if !strings.Contains(script, want) {
+			t.Errorf("script missing %s", want)
+		}
 	}
 	if !strings.Contains(get("/nodeconfig.css"), "--amber") {
 		t.Error("styles missing --amber")
 	}
-	if _, err := fs.Stat(Assets(), "index.html"); err != nil {
+	if _, err := fs.Stat(Assets(), "node.html"); err != nil {
 		t.Error(err)
 	}
 }

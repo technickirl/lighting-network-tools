@@ -41,7 +41,10 @@ func TestBothPagesAndAPIsOnOneServer(t *testing.T) {
 		{"/configure/nodeconfig.js", 200, "function rdmLoad"},
 		{"/configure/rdm-fixtures.js", 200, "function rdmPanelHtml"},
 		{"/style.css", 200, ".btn-configure"},
-		{"/configure/", 200, `src="nodeconfig.js"`},
+		{"/", 200, `id="nodeHost"`},
+		{"/node.js", 200, "function openNode"},
+		{"/configure/node.html", 200, `data-tab="processblocks"`},
+		{"/configure/nodeconfig.js", 200, "function ncOpen"},
 		{"/configure/nodeconfig.js", 200, "function renderProcessBlocks"},
 		{"/configure/nodeconfig.css", 200, "--amber"},
 		{"/api/state", 200, `"configureUrl":"/configure/"`},
@@ -202,6 +205,27 @@ func scanUntilListed(t *testing.T, srv *httptest.Server, ip string) {
 		_, d := send(t, "GET", srv.URL+"/api/device/"+nodeSerial, "")
 		return d["known"] == true && d["ip"] == ip
 	})
+}
+
+// /configure/ was a page of its own before the Node view: an old bookmark or
+// open tab lands on the same node in the device list's page.
+func TestOldConfigureAddressGoesToTheNodeView(t *testing.T) {
+	srv := httptest.NewServer(newMux(commission.Options{}))
+	defer srv.Close()
+	client := &http.Client{CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }}
+	for path, want := range map[string]string{
+		"/configure/":                         "/",
+		"/configure/?ip=192.168.1.73&id=LUM1": "/#id=LUM1&node=192.168.1.73",
+	} {
+		res, err := client.Get(srv.URL + path)
+		if err != nil {
+			t.Fatal(err)
+		}
+		res.Body.Close()
+		if res.StatusCode != http.StatusFound || res.Header.Get("Location") != want {
+			t.Errorf("GET %s: %d to %q, want 302 to %q", path, res.StatusCode, res.Header.Get("Location"), want)
+		}
+	}
 }
 
 // Address a node, get locked out while the job runs, then configure it at its new

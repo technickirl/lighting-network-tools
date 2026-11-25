@@ -215,7 +215,7 @@ function rdmBatchIdentify(on) {
 function rdmBatchRun(kind) {
   const b = rdm.batch;
   if (kind === 'personality') {
-    const n = +$('rdm-b-pers').value;
+    const n = +nc$('rdm-b-pers').value;
     rdmBatchEach(`Personality ${n}`, (f, ip, port) =>
       call(`/api/node/${ip}/rdm/${port}/fixture/${encodeURIComponent(f.uid)}`, 'POST', { personality: n }));
   } else if (kind === 'setting') {
@@ -318,8 +318,8 @@ function rdmReaddressInput(key, raw) {
   const b = rdm.batch;
   if (!b || b.kind !== 'readdress') return;
   b[key] = raw === '' ? null : Number(raw);
-  const plan = rdmReaddressPlan(b.port, b), go = $('rdm-ra-go');
-  $('rdm-ra-preview').innerHTML = rdmReaddressPreview(b.port, b);
+  const plan = rdmReaddressPlan(b.port, b), go = nc$('rdm-ra-go');
+  nc$('rdm-ra-preview').innerHTML = rdmReaddressPreview(b.port, b);
   if (go && !b.running) {
     go.disabled = !!plan.block || !plan.rows.length;
     go.title = plan.block || (plan.rows.length ? `Set the new patch on ${plan.rows.length} fixtures` : 'Nothing to readdress');
@@ -344,7 +344,7 @@ function rdmValueInput(s, id) {
 }
 
 function rdmReadValue(s, id) {
-  const raw = $(id).value;
+  const raw = nc$(id).value;
   if (s.kind === 'text') return { value: raw };
   const n = Number(raw);
   if (raw === '' || !Number.isInteger(n) || n < s.min || n > s.max) return { error: `${s.name} takes ${s.min}-${s.max}` };
