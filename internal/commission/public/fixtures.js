@@ -6,12 +6,13 @@
 
 const fxEls = {
   view: $('fixturesView'), status: $('fixturesStatus'), body: $('fixturesList'), banner: $('fixturesBanner'),
-  read: $('btnReadFixtures'), note: $('fixturesNote'), csv: $('btnFixturesCsv'), clashes: $('fixturesClashesOnly'),
+  read: $('btnReadFixtures'), note: $('fixturesNote'), patchAll: $('fixturesPatchAll'), csv: $('btnFixturesCsv'), clashes: $('fixturesClashesOnly'),
 };
 
 // Per node: { name, ip, id, ports: [...], read: { port: result }, error, at }
 let fixtureNodes = [];
 let fixturesReading = false;
+let fxPatching = 0;            // the universe Patch all is working on, or 0
 
 function fixtureNodeList() {
   return (state && state.devices || []).filter(d => d.apiKind === 'luminode' && d.ip);
@@ -90,6 +91,70 @@ function fxSacnUniverse(p) {
   return m ? Number(m[1]) : p.universe >= 1 ? p.universe : 0;
 }
 
+// Why a fixture cannot be patched on sACN control, or '' when it can.
+function fxNoPatch(f, universe) {
+  return f.error ? 'This fixture did not answer' : f.start == null || !f.footprint ? 'It has no DMX address' : !universe ? 'This port has no sACN universe' : '';
+}
+
+// Every fixture read, by the sACN universe its port outputs: what Patch all works
+// through. A universe on two ports, or on two nodes, is one entry.
+function fxByUniverse() {
+  const by = new Map();
+  for (const n of fixtureNodes) for (const p of n.ports.filter(p => p.rdm)) {
+    const res = n.read[p.port], u = fxSacnUniverse(p);
+    if (!u || !res || res.error) continue;
+    if (!by.has(u)) by.set(u, []);
+    for (const f of res.fixtures) by.get(u).push({ f, n, p });
+  }
+  return [...by].sort((a, b) => a[0] - b[0]);
+}
+
+// Patch every fixture read on one universe, in address order, one after another:
+// the first of a model makes (or finds) its profile and the rest use it.
+async function fxPatchAll(universe) {
+  if (fxPatching || typeof sacnPatchOne !== 'function') return;
+  const entry = fxByUniverse().find(([u]) => u === universe);
+  if (!entry) return;
+  const items = [...entry[1]].sort((a, b) => (a.f.start ?? 999) - (b.f.start ?? 999));
+  fxPatching = universe;
+  renderFixtures();
+  let patched = 0, already = 0; const made = new Set(), not = [];
+  for (let i = 0; i < items.length; i++) {
+    const { f, n, p } = items[i], who = f.label || f.model || f.uid;
+    fxEls.note.textContent = `› Universe ${universe}: patching ${i + 1} of ${items.length}…`;
+    const why = fxNoPatch(f, universe);
+    if (why) { not.push(`${who} (${why[0].toLowerCase() + why.slice(1)})`); continue; }
+    try {
+      const r = await sacnPatchOne(f, universe, `/api/node/${n.ip}/rdm/${p.port}/fixture/${encodeURIComponent(f.uid)}/slots`);
+      if (r.status === 'already') already++; else patched++;
+      if (r.made) made.add(r.profile);
+    } catch (e) { not.push(`${who} (${e.message})`); }
+  }
+  const s = k => k === 1 ? '' : 's';
+  fxEls.note.textContent = `› Universe ${universe}: patched ${patched} fixture${s(patched)}` +
+    (already ? `, ${already} already in the patch` : '') +
+    (made.size ? `. New profile${s(made.size)}: ${[...made].join(', ')}` : patched ? '. No new profile was needed' : '') +
+    (not.length ? `. Not patched: ${not.join('; ')}` : '') + '.';
+  fxPatching = 0;
+  renderFixtures();
+}
+
+function fxRenderPatchAll() {
+  const groups = fxByUniverse(), can = typeof sacnPatchOne === 'function';
+  const sig = JSON.stringify([groups.map(([u, items]) => [u, items.length, items.filter(x => !fxNoPatch(x.f, u)).length]), fxPatching, fixturesReading]);
+  if (sig === fxRenderPatchAll.sig) return;
+  fxRenderPatchAll.sig = sig;
+  if (!groups.length) {
+    fxEls.patchAll.innerHTML = `<span class="muted">Patch all on sACN control:</span> <button class="btn btn-small" disabled title="${fixtureNodes.length ? 'No fixtures were read on a port with an sACN universe' : 'Read the fixtures first'}">Patch all</button>`;
+    return;
+  }
+  fxEls.patchAll.innerHTML = `<span class="muted">Patch all on sACN control:</span> ` + groups.map(([u, items]) => {
+    const ok = items.filter(x => !fxNoPatch(x.f, u)).length;
+    const why = !can ? 'sACN control is not part of this tool' : fixturesReading ? 'Reading…' : fxPatching ? `Patching universe ${fxPatching}…` : !ok ? 'None of its fixtures has a DMX address' : '';
+    return `<button class="btn btn-small" data-patch-all="${u}" ${why ? `disabled title="${why}"` : `title="Add the ${ok} fixture${ok === 1 ? '' : 's'} read on universe ${u} to the sACN control patch, each at its own address. Fixtures already there are left alone, and a profile is only made when none fits. Sends nothing."`}>${fxPatching === u ? 'Patching…' : `Universe ${u} · ${items.length} fixture${items.length === 1 ? '' : 's'}`}</button>`;
+  }).join(' ');
+}
+
 function fxTable(fixtures, clashesOnly, n, p) {
   const p0 = p, universe = p0 ? fxSacnUniverse(p0) : 0;
   const problems = fixtures.map(f => fxProblems(f, fixtures));
@@ -98,7 +163,7 @@ function fxTable(fixtures, clashesOnly, n, p) {
   // A problem goes on its own line under the fixture: the view is too narrow for a note column.
   return `<table class="fx-table"><thead><tr><th>Addr</th><th>Ch</th><th>Personality</th><th>Manufacturer</th><th>Model</th><th>Label</th>
     <th>Software</th><th>Sensors</th><th></th></tr></thead><tbody>` + shown.map(([f, p]) => {
-    const noPatch = !n ? 'Read the fixtures first' : f.error ? 'This fixture did not answer' : f.start == null || !f.footprint ? 'It has no DMX address' : !universe ? 'This port has no sACN universe' : '';
+    const noPatch = !n ? 'Read the fixtures first' : fxPatching ? `Patching universe ${fxPatching}…` : fxNoPatch(f, universe);
     const end = f.start != null && f.footprint ? f.start + f.footprint - 1 : null;
     const pers = f.personality ? (f.personalityName ? `${esc(f.personalityName)} <span class="muted">${f.personality}/${f.personalities}</span>` : `${f.personality} of ${f.personalities}`) : '—';
     const cls = f.error ? 'fx-err' : p.length ? 'fx-clash' : '';
@@ -120,6 +185,7 @@ function renderFixtures() {
   fxEls.read.textContent = fixturesReading ? 'Reading…' : '⟳ Read all nodes';
   const total = fixtureNodes.reduce((n, x) => n + Object.values(x.read).reduce((m, r) => m + r.fixtures.length, 0), 0);
   fxEls.csv.disabled = !total;
+  fxRenderPatchAll();
   fxEls.csv.title = total ? 'Save every fixture as a CSV file' : 'Read the fixtures first';
   if (!fixturesReading) fxEls.status.textContent = fixtureNodes.length ? `— ${total} fixture(s) on ${fixtureNodes.length} node(s)` : '';
 
@@ -186,11 +252,15 @@ fxEls.clashes.addEventListener('change', renderFixtures);
 fxEls.body.addEventListener('click', onConfigureClick);
 fxEls.body.addEventListener('click', async ev => {
   const b = ev.target.closest('[data-patch-uid]');
-  if (!b || b.disabled || typeof sacnPatchFromRdm !== 'function') return;
+  if (!b || b.disabled || fxPatching || typeof sacnPatchOne !== 'function') return;
   const n = fixtureNodes.find(x => x.id === b.dataset.patchNode);
   const port = n && n.ports.find(x => String(x.port) === b.dataset.patchPort);
   const f = n && port && n.read[port.port] && n.read[port.port].fixtures.find(x => x.uid === b.dataset.patchUid);
   if (!f) return;
-  try { fxEls.note.textContent = '› ' + await sacnPatchFromRdm(f, fxSacnUniverse(port), `/api/node/${n.ip}/rdm/${port.port}/fixture/${encodeURIComponent(f.uid)}/slots`); }
+  try { fxEls.note.textContent = '› ' + (await sacnPatchOne(f, fxSacnUniverse(port), `/api/node/${n.ip}/rdm/${port.port}/fixture/${encodeURIComponent(f.uid)}/slots`)).text; }
   catch (e) { fxEls.note.textContent = '› Not patched: ' + e.message; }
+});
+fxEls.patchAll.addEventListener('click', ev => {
+  const b = ev.target.closest('[data-patch-all]');
+  if (b && !b.disabled) fxPatchAll(Number(b.dataset.patchAll));
 });

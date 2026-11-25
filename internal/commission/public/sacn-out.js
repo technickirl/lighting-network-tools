@@ -465,29 +465,57 @@ async function soAdd() {
 }
 soEls.add.addEventListener('click', soAdd);
 
-// Called by the Fixtures view's Patch button: patch a fixture that RDM has read,
-// making a plain profile of the right size if none has its name yet.
-// slotsUrl is the fixture's /slots address on its node: where it says, over RDM, what
-// each channel is. Channels it describes get their type's usual highlight level from
-// the server (dimmer 50%, red, green and blue full, cyan, magenta and yellow zero).
-async function sacnPatchFromRdm(f, universe, slotsUrl) {
+// Called by the Fixtures view's Patch and Patch all buttons: patch a fixture that
+// RDM has read, without making a second copy of anything.
+//  - A fixture already in the patch at that universe and address is left alone.
+//  - A profile saved for its model and personality is used again.
+//  - Otherwise the fixture is asked what its channels are (slotsUrl, its /slots
+//    address on its node), and a profile with those same channels is used if there
+//    is one (a one-channel dimmer takes the built-in Dimmer).
+//  - Only then is a profile made. Channels the fixture describes get their type's
+//    usual highlight level from the server (dimmer 50%, red, green and blue full,
+//    cyan, magenta and yellow zero).
+// Answers { status: 'patched' | 'already', name, profile, made, text }.
+function soSameChannels(a, b) {
+  return a.length === b.length && a.every((c, i) => c.type !== 'other' && c.type === b[i].type && !!c.fine === !!b[i].fine && (c.default || 0) === (b[i].default || 0));
+}
+async function sacnPatchOne(f, universe, slotsUrl) {
   if (!so) soApply(await fxCall('/api/sacn/out'));
-  const profile = ([f.model, f.personalityName].filter(Boolean).join(' ') || `RDM fixture ${f.footprint} ch`).slice(0, 80);
-  let how = `the profile "${profile}", which was already saved`;
-  if (!so.profiles.some(p => p.name.toLowerCase() === profile.toLowerCase())) {
+  const name = (f.label || f.model || f.uid).slice(0, 60);
+  const there = so.fixtures.find(x => x.universe === universe && x.address === f.start && x.channels.length === f.footprint);
+  if (there) return { status: 'already', name, profile: there.profile, made: false, text: `${name} is already in the patch at universe ${universe}, address ${f.start}${there.name === name ? '' : `, as ${there.name}`}.` };
+  // What the server would refuse, said before a profile is made for a fixture that then cannot be patched.
+  const end = f.start + f.footprint - 1;
+  if (end > 512) throw new Error(`its ${f.footprint} channels from address ${f.start} would run to ${end}, past 512`);
+  const clash = so.fixtures.find(x => x.universe === universe && f.start < x.address + Math.max(1, x.channels.length) && x.address <= end);
+  if (clash) throw new Error(`universe ${universe}, channels ${f.start}-${end}: "${clash.name}" is already patched there`);
+  // Named after the model and the personality, by number when the fixture gives it no name, so two modes never share a profile.
+  const mode = f.personalityName || (f.personality ? `mode ${f.personality}` : '');
+  let profile = ([f.model, mode].filter(Boolean).join(' ') || `RDM fixture ${f.footprint} ch`).slice(0, 80);
+  const saved = n => so.profiles.find(p => p.name.toLowerCase() === n.toLowerCase());
+  // A profile of that name with another channel count is some other fixture's: leave it be.
+  if (saved(profile) && saved(profile).channels.length !== f.footprint) profile = `${profile.slice(0, 70)} (${f.footprint} ch)`;
+  let how = `the profile "${profile}", which was already saved`, made = false;
+  if (!saved(profile) || saved(profile).channels.length !== f.footprint) {
     let channels = null;
     try {
       const d = slotsUrl ? await fxCall(slotsUrl) : null;
       if (d && d.slots && d.slots.length === f.footprint) channels = d.slots.map(s => ({ name: s.name, type: so.types.includes(s.type) ? s.type : 'other', default: s.default || 0, fine: !!s.fine }));
     } catch { /* the fixture does not describe its channels */ }
-    how = channels ? `a new profile "${profile}", with its channels as the fixture describes them`
-      : `a new profile "${profile}". The fixture does not say what its channels are, so they are numbered and Highlight is off until you set them on sACN control, Profiles`;
-    channels = channels || Array.from({ length: f.footprint }, (x, i) => ({ name: `Ch ${i + 1}`, type: 'other', default: 0, highlight: -1 }));
-    soApply(await soPost('profiles/save', { name: profile, channels }));
+    const same = channels && so.profiles.find(p => soSameChannels(channels, p.channels));
+    if (same) {
+      profile = same.name;
+      how = `the profile "${profile}", which has the same channels`;
+    } else {
+      how = channels ? `a new profile "${profile}", with its channels as the fixture describes them`
+        : `a new profile "${profile}". The fixture does not say what its channels are, so they are numbered and Highlight is off until you set them on sACN control, Profiles`;
+      channels = channels || Array.from({ length: f.footprint }, (x, i) => ({ name: `Ch ${i + 1}`, type: 'other', default: 0, highlight: -1 }));
+      soApply(await soPost('profiles/save', { name: profile, channels }));
+      made = true;
+    }
   }
-  const name = (f.label || f.model || f.uid).slice(0, 60);
   soApply(await soPost('fixtures/add', { name, profile, universe, address: f.start, count: 1 }));
-  return `Patched ${name} at universe ${universe}, address ${f.start} with ${how}.`;
+  return { status: 'patched', name, profile, made, text: `Patched ${name} at universe ${universe}, address ${f.start} with ${how}.` };
 }
 
 // ─── Channels ───────────────────────────────────────────────────────────────
