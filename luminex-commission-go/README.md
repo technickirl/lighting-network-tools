@@ -143,6 +143,17 @@ puts the levels on its DMX outputs, so treat Start like bringing up a fader on a
   typed channels and the standard highlight: dimmer 50%, red, green and blue 100%, cyan, magenta
   and yellow 0. A fixture that answers neither gets plain numbered channels and no highlight until
   they are set in the editor. A profile already saved under that name is used as it is.
+- **16-bit channels**: a channel ticked **Fine** in the editor is the low half of a 16-bit pair
+  with the channel before it (pan and pan fine, dimmer and dimmer fine, any type). The pair is one
+  fader on the tile, shown in percent, driving both DMX channels; Off and Full set both halves, and
+  a fine channel's highlight follows its coarse one (full with it, otherwise zero, so 50% is 128
+  and 0). A fine channel has to come straight after its coarse channel and takes its type. With a
+  master, a 16-bit fader moves a 16-bit follower's pair and the coarse half of an 8-bit one. A
+  fixture patched from RDM gets its pairs from its fine slots (a fine slot that does not follow
+  its coarse one, as in pan, tilt, pan fine, tilt fine, is left as a plain channel).
+- **Pan and tilt sit at half**: a profile made from RDM gives pan and tilt a default of 128, and
+  picking either type in the editor fills 128 in, so a moving light starts centred and Clear all
+  levels returns it there. Profiles saved earlier are not changed.
 - It sends up to 32 universes at 40 Hz each, multicast with a TTL of 1, and announces them
   (universe discovery). The patch and the operator's profiles are kept in the user config folder
   (`sacn-patch.json`, `sacn-profiles.json`) and so are shared with an iPad; levels are not kept.

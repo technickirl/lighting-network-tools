@@ -40,6 +40,22 @@ type Channel struct {
 	// Highlight is the level Highlight fades the channel to, 0-255, or -1 to leave
 	// it where it is. A profile saved without one gets its type's usual level.
 	Highlight *int `json:"highlight,omitempty"`
+	// Fine marks the low half of a 16-bit pair: the channel before it is the high
+	// (coarse) half, and the page draws the two as one fader. It takes that
+	// channel's type, and its highlight level follows it.
+	Fine bool `json:"fine,omitempty"`
+}
+
+// fineHighlight is the highlight level of a fine channel, from its coarse one's:
+// full stays full (255 and 255), anything else is exact on the coarse half alone.
+func fineHighlight(coarse int) int {
+	switch {
+	case coarse < 0:
+		return -1
+	case coarse == 255:
+		return 255
+	}
+	return 0
 }
 
 // HighlightFade is how long Highlight takes to fade in and out.
@@ -54,6 +70,11 @@ func defaultHighlights(cs []Channel) {
 		rgb = rgb || c.Type == "red" || c.Type == "green" || c.Type == "blue"
 	}
 	for i := range cs {
+		if cs[i].Fine && i > 0 {
+			v := fineHighlight(*cs[i-1].Highlight)
+			cs[i].Highlight = &v
+			continue
+		}
 		if cs[i].Highlight != nil {
 			continue
 		}
@@ -118,6 +139,15 @@ func (p *Profile) validate() error {
 		}
 		if len(c.Name) > 40 {
 			return fmt.Errorf("channel %d: the name is longer than 40 characters", i+1)
+		}
+		if c.Fine {
+			if i == 0 {
+				return fmt.Errorf("channel 1 cannot be a fine channel: a fine channel comes straight after the channel it belongs to")
+			}
+			if p.Channels[i-1].Fine {
+				return fmt.Errorf("channel %d: the channel before it is a fine channel too; a fine channel comes straight after its coarse one", i+1)
+			}
+			c.Type = p.Channels[i-1].Type
 		}
 		ok := false
 		for _, t := range ChannelTypes {

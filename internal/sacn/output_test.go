@@ -480,3 +480,33 @@ func TestHighlightFadesInAndBack(t *testing.T) {
 		t.Errorf("after Clear: %d %d %+v", level(1), level(2), st.Fixtures[0])
 	}
 }
+
+func TestFineChannels(t *testing.T) {
+	hl := func(v int) *int { return &v }
+	p := Profile{Name: "Mover", Channels: []Channel{
+		{Name: "Dimmer", Type: "dimmer"}, {Name: "Dimmer fine", Type: "other", Fine: true},
+		{Name: "Pan", Type: "pan", Default: 128}, {Name: "Pan fine", Type: "pan", Fine: true, Highlight: hl(77)},
+		{Name: "Red", Type: "red"}, {Name: "Red fine", Fine: true},
+	}}
+	if err := p.validate(); err != nil {
+		t.Fatal(err)
+	}
+	// A fine channel takes its coarse one's type, and its highlight follows: exact
+	// on the coarse half (128 and 0), both halves at full, and alone when the coarse one is.
+	for i, want := range []struct {
+		typ string
+		hl  int
+	}{{"dimmer", 128}, {"dimmer", 0}, {"pan", -1}, {"pan", -1}, {"red", 255}, {"red", 255}} {
+		if c := p.Channels[i]; c.Type != want.typ || *c.Highlight != want.hl {
+			t.Errorf("channel %d: type %s highlight %d, want %s %d", i+1, c.Type, *c.Highlight, want.typ, want.hl)
+		}
+	}
+	for _, bad := range [][]Channel{
+		{{Name: "A", Type: "dimmer", Fine: true}},
+		{{Name: "A", Type: "dimmer"}, {Name: "B", Fine: true}, {Name: "C", Fine: true}},
+	} {
+		if err := (&Profile{Name: "Bad", Channels: bad}).validate(); err == nil {
+			t.Errorf("%+v: saved, want an error", bad)
+		}
+	}
+}

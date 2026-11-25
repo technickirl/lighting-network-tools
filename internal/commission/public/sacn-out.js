@@ -246,9 +246,13 @@ soEls.uniAdd.addEventListener('keydown', ev => { if (ev.key === 'Enter') soUniAd
 const SO_INTENSITY = ['red', 'green', 'blue', 'white', 'amber', 'lime', 'warm', 'cool', 'uv'];
 const SO_TINT = { red: [255, 0, 0], green: [0, 255, 0], blue: [0, 0, 255], white: [255, 255, 255], amber: [255, 170, 0], lime: [170, 255, 0], warm: [255, 190, 120], cool: [190, 215, 255], uv: [110, 0, 255] };
 
+// A fine channel is the low half of a 16-bit pair with the channel before it: the
+// pair is one fader, on the coarse channel, so a fine channel never has its own.
+function soFaders(f) { return f.channels.map((c, i) => i).filter(i => !f.channels[i].fine); }
+function soIs16(f, i) { return !!(f.channels[i + 1] && f.channels[i + 1].fine); }
 function soMain(f) { // the faders a tile always shows: its dimmers, or everything when it has none
-  const d = f.channels.map((c, i) => i).filter(i => f.channels[i].type === 'dimmer');
-  return d.length ? d : f.channels.map((c, i) => i);
+  const d = soFaders(f).filter(i => f.channels[i].type === 'dimmer');
+  return d.length ? d : soFaders(f);
 }
 
 // The selected fixtures in patch order (universe, then address), and their master:
@@ -273,11 +277,14 @@ function soEvery() {
 // The channel of fixture g that goes with channel i of fixture f: the same type,
 // counted the same way (the second "white" with the second "white"), so fixtures
 // of different profiles follow each other where they have the same kind of channel.
+// A fine channel goes with the fine channel of the match, if that one is 16 bit too;
+// an 8-bit follower takes the coarse half only.
 function soMatch(f, i, g) {
+  if (f.channels[i].fine) { const j = soMatch(f, i - 1, g); return j >= 0 && soIs16(g, j) ? j + 1 : -1; }
   const type = f.channels[i].type;
-  const nth = f.channels.slice(0, i).filter(c => c.type === type).length;
+  const nth = f.channels.slice(0, i).filter(c => c.type === type && !c.fine).length;
   let seen = 0;
-  for (let j = 0; j < g.channels.length; j++) if (g.channels[j].type === type && seen++ === nth) return j;
+  for (let j = 0; j < g.channels.length; j++) if (g.channels[j].type === type && !g.channels[j].fine && seen++ === nth) return j;
   return -1;
 }
 
@@ -294,6 +301,8 @@ function soSetFixture(f, pairs) { // pairs: [channel index, level]
 
 function soFader(f, i) {
   const c = f.channels[i], a = f.address + i;
+  if (soIs16(f, i)) return `<label class="so-ch so-ch16 so-t-${esc(c.type)}"><span title="Addresses ${a} and ${a + 1}: 16 bit, coarse then fine">${esc(c.name)}</span>
+    <input type="range" min="0" max="65535" value="0" data-u="${f.universe}" data-a="${a}" data-i="${i}" data-fine="1"><output>0%</output></label>`;
   return `<label class="so-ch so-t-${esc(c.type)}"><span title="Address ${a}">${esc(c.name)}</span>
     <input type="range" min="0" max="255" value="0" data-u="${f.universe}" data-a="${a}" data-i="${i}"><output>0</output></label>`;
 }
@@ -325,7 +334,7 @@ function soRenderTiles() {
     return;
   }
   soEls.tiles.innerHTML = `<div class="so-tiles">` + shown.map(f => {
-    const main = soMain(f), rest = f.channels.map((c, i) => i).filter(i => !main.includes(i));
+    const main = soMain(f), rest = soFaders(f).filter(i => !main.includes(i));
     const open = soOpen.has(f.id);
     const end = f.address + Math.max(1, f.channels.length) - 1;
     const sel = soPick.has(f.id), isMaster = master && master.id === f.id;
@@ -349,6 +358,7 @@ function soRenderTiles() {
 function soSwatch(f) {
   let dim = 1, any = false, rgb = [0, 0, 0], hasDim = false;
   f.channels.forEach((c, i) => {
+    if (c.fine) return;
     const v = soLevel(f.universe, f.address + i) / 255;
     if (c.type === 'dimmer' && !hasDim) { dim = v; hasDim = true; }
     const t = SO_TINT[c.type];
@@ -363,10 +373,11 @@ function soDrawLevels() {
   if (!so) return;
   if (soTab === 'fixtures') {
     for (const el of soEls.tiles.querySelectorAll('input[type=range]')) {
-      const v = soLevel(Number(el.dataset.u), Number(el.dataset.a));
+      const u = Number(el.dataset.u), a = Number(el.dataset.a), fine = !!el.dataset.fine;
+      const v = fine ? soLevel(u, a) * 256 + soLevel(u, a + 1) : soLevel(u, a);
       // Only the fader under the finger is left alone, so the ones following a master move with it.
       if (Number(el.value) !== v && el !== soDragging) el.value = v;
-      el.nextElementSibling.textContent = el.value;
+      el.nextElementSibling.textContent = fine ? (Number(el.value) / 655.35).toFixed(1) + '%' : el.value;
     }
     for (const tile of soEls.tiles.querySelectorAll('.so-fx')) {
       const f = so.fixtures.find(x => x.id === Number(tile.dataset.id));
@@ -387,7 +398,8 @@ soEls.tiles.addEventListener('input', ev => {
   if (el.type !== 'range') return;
   soDragging = el;
   const f = so.fixtures.find(x => x.id === Number(el.closest('.so-fx').dataset.id));
-  if (f) soSetFixture(f, [[Number(el.dataset.i), Number(el.value)]]);
+  const i = Number(el.dataset.i), v = Number(el.value);
+  if (f) soSetFixture(f, el.dataset.fine ? [[i, v >> 8], [i + 1, v & 255]] : [[i, v]]);
 });
 soEls.tiles.addEventListener('change', () => { soDragging = null; });
 soEls.tiles.addEventListener('click', async ev => {
@@ -466,7 +478,7 @@ async function sacnPatchFromRdm(f, universe, slotsUrl) {
     let channels = null;
     try {
       const d = slotsUrl ? await fxCall(slotsUrl) : null;
-      if (d && d.slots && d.slots.length === f.footprint) channels = d.slots.map(s => ({ name: s.name, type: so.types.includes(s.type) ? s.type : 'other', default: 0 }));
+      if (d && d.slots && d.slots.length === f.footprint) channels = d.slots.map(s => ({ name: s.name, type: so.types.includes(s.type) ? s.type : 'other', default: s.default || 0, fine: !!s.fine }));
     } catch { /* the fixture does not describe its channels */ }
     how = channels ? `a new profile "${profile}", with its channels as the fixture describes them`
       : `a new profile "${profile}". The fixture does not say what its channels are, so they are numbered and Highlight is off until you set them on sACN control, Profiles`;
@@ -551,7 +563,7 @@ function soRenderProfiles() {
       const inUse = used.has(p.name.toLowerCase());
       const del = p.builtIn ? 'Built-in profiles cannot be deleted' : inUse ? 'Patched fixtures use it: remove them first' : '';
       return `<tr><td><b>${esc(p.name)}</b>${p.builtIn ? ' <span class="muted">built in</span>' : ''}</td><td class="fx-num">${p.channels.length}</td>
-        <td class="so-chlist">${p.channels.slice(0, 24).map(c => `<span class="so-chip so-t-${esc(c.type)}">${esc(c.name)}</span>`).join('')}${p.channels.length > 24 ? ` <span class="muted">+${p.channels.length - 24}</span>` : ''}</td>
+        <td class="so-chlist">${p.channels.slice(0, 24).map(c => `<span class="so-chip so-t-${esc(c.type)}${c.fine ? ' so-chip-fine' : ''}"${c.fine ? ' title="Fine: the low half of a 16-bit pair with the channel before it"' : ''}>${esc(c.name)}</span>`).join('')}${p.channels.length > 24 ? ` <span class="muted">+${p.channels.length - 24}</span>` : ''}</td>
         <td class="so-actions">
           <button class="btn btn-small" data-p="${i}" data-act="${p.builtIn ? 'copy' : 'edit'}" title="${p.builtIn ? 'Start a new profile from this one' : 'Change this profile'}">${p.builtIn ? 'Copy' : 'Edit'}</button>
           <button class="btn btn-small" data-p="${i}" data-act="export" title="Save this profile as a file, to load on another computer">Export</button>
@@ -566,21 +578,35 @@ function soDrawEditor() {
   soEls.editor.innerHTML = `<div class="so-editor">
     <div class="so-form"><label>Profile name <input type="text" id="soDraftName" value="${esc(d.name)}" maxlength="80" autocomplete="off"></label>
       <span class="muted">${d.was ? `Editing “${esc(d.was)}”. A new name saves a copy.` : 'New profile.'} Channels are in DMX order.</span></div>
-    <table class="fx-table so-edit-table"><thead><tr><th>#</th><th>Name</th><th>Type</th><th>Default</th><th title="The level Highlight fades this channel to. Empty leaves the channel where it is.">Highlight</th><th></th></tr></thead><tbody>` +
-    d.channels.map((c, i) => `<tr data-i="${i}"><td class="fx-num">${i + 1}</td>
+    <table class="fx-table so-edit-table"><thead><tr><th>#</th><th>Name</th><th title="Tick for the low half of a 16-bit pair: this channel and the one before it become one fader">Fine</th><th>Type</th><th>Default</th><th title="The level Highlight fades this channel to. Empty leaves the channel where it is.">Highlight</th><th></th></tr></thead><tbody>` +
+    d.channels.map((c, i) => {
+      const noFine = !i ? 'The first channel cannot be fine: a fine channel comes straight after its coarse one' : d.channels[i - 1].fine ? 'The channel before it is fine already' : d.channels[i + 1] && d.channels[i + 1].fine && !c.fine ? 'The next channel is this one\'s fine half' : '';
+      return `<tr data-i="${i}"><td class="fx-num">${i + 1}</td>
       <td><input type="text" data-f="name" value="${esc(c.name)}" maxlength="40" autocomplete="off"></td>
-      <td><select data-f="type">${so.types.map(t => `<option${t === c.type ? ' selected' : ''}>${esc(t)}</option>`).join('')}</select></td>
+      <td><input type="checkbox" data-f="fine" ${c.fine ? 'checked' : ''} ${noFine ? `disabled title="${noFine}"` : `title="The low half of a 16-bit pair with channel ${i}: the two are one fader"`}></td>
+      <td><select data-f="type" ${c.fine ? 'disabled title="A fine channel has its coarse channel\'s type"' : ''}>${so.types.map(t => `<option${t === c.type ? ' selected' : ''}>${esc(t)}</option>`).join('')}</select></td>
       <td><input type="text" inputmode="numeric" data-f="default" value="${c.default}" class="so-num" autocomplete="off"></td>
-      <td><input type="text" inputmode="numeric" data-f="highlight" value="${c.highlight >= 0 ? c.highlight : ''}" placeholder="—" class="so-num" autocomplete="off" title="0-255, or empty to leave this channel alone"></td>
+      <td><input type="text" inputmode="numeric" data-f="highlight" value="${c.highlight >= 0 ? c.highlight : ''}" placeholder="—" class="so-num" autocomplete="off" ${c.fine ? 'disabled title="Follows its coarse channel: full with it, otherwise zero"' : 'title="0-255, or empty to leave this channel alone"'}></td>
       <td class="so-actions"><button class="btn btn-small" data-act="up" ${i ? '' : 'disabled title="Already first"'}>↑</button>
         <button class="btn btn-small" data-act="down" ${i < d.channels.length - 1 ? '' : 'disabled title="Already last"'}>↓</button>
-        <button class="btn btn-small" data-act="drop" ${d.channels.length > 1 ? '' : 'disabled title="A profile needs a channel"'}>Remove</button></td></tr>`).join('') +
+        <button class="btn btn-small" data-act="drop" ${d.channels.length > 1 ? '' : 'disabled title="A profile needs a channel"'}>Remove</button></td></tr>`;
+    }).join('') +
     `</tbody></table>
     <div class="btn-row"><button class="btn" data-act="addch">Add a channel</button><span class="spacer"></span>
       <button class="btn" data-act="cancel">Cancel</button><button class="btn btn-primary" data-act="save">Save profile</button></div></div>`;
 }
 
 function soTypeHighlight(t) { return t === 'dimmer' ? 128 : ['red', 'green', 'blue'].includes(t) ? 255 : -1; }
+// Fine channels follow the channel before them, as the server will save them.
+function soDraftFine() {
+  soDraft.channels.forEach((c, i) => {
+    if (!i || soDraft.channels[i - 1].fine) c.fine = false;
+    if (!c.fine) return;
+    const co = soDraft.channels[i - 1];
+    c.type = co.type;
+    c.highlight = co.highlight < 0 ? -1 : co.highlight === 255 ? 255 : 0;
+  });
+}
 
 function soEdit(p, copy) {
   soDraft = p ? { was: copy ? '' : p.name, name: copy ? p.name + ' copy' : p.name, channels: p.channels.map(c => ({ ...c })) }
@@ -595,6 +621,13 @@ soEls.editor.addEventListener('input', ev => {
   const tr = ev.target.closest('tr[data-i]'), f = ev.target.dataset.f;
   if (!tr || !f) return;
   const c = soDraft.channels[Number(tr.dataset.i)];
+  if (f === 'fine') {
+    c.fine = ev.target.checked;
+    const co = soDraft.channels[Number(tr.dataset.i) - 1];
+    if (c.fine && co && (/^Ch \d+$/.test(c.name) || !c.name)) c.name = (co.name + ' fine').slice(0, 40);
+    soDraftFine(); soDrawEditor();
+    return;
+  }
   if (f === 'default') c.default = /^\d+$/.test(ev.target.value.trim()) ? Number(ev.target.value) : -1;
   else if (f === 'highlight') { const v = ev.target.value.trim(); c.highlight = v === '' ? -1 : /^\d+$/.test(v) ? Number(v) : 999; }
   else {
@@ -607,8 +640,13 @@ soEls.editor.addEventListener('input', ev => {
       // The usual highlight level for the new type: dimmer at 50%, red, green and blue at full.
       c.highlight = soTypeHighlight(ev.target.value);
       tr.querySelector('[data-f=highlight]').value = c.highlight >= 0 ? c.highlight : '';
+      // Pan and tilt sit at half, so a moving light starts centred; other types at zero.
+      const centred = ['pan', 'tilt'].includes(ev.target.value), was = ['pan', 'tilt'].includes(c.type);
+      if (centred && c.default === 0) c.default = 128; else if (!centred && was && c.default === 128) c.default = 0;
+      tr.querySelector('[data-f=default]').value = c.default;
     }
     c[f] = ev.target.value;
+    if (f === 'type' && soIs16(soDraft, Number(tr.dataset.i))) { soDraftFine(); soDrawEditor(); }
   }
 });
 soEls.editor.addEventListener('click', async ev => {
@@ -620,7 +658,8 @@ soEls.editor.addEventListener('click', async ev => {
   else if (act === 'up') [ch[i - 1], ch[i]] = [ch[i], ch[i - 1]];
   else if (act === 'down') [ch[i + 1], ch[i]] = [ch[i], ch[i + 1]];
   else if (act === 'cancel') soDraft = null;
-  else if (act === 'save') {
+  if (soDraft && act !== 'save') soDraftFine();
+  if (act === 'save') {
     try {
       const name = soDraft.name.trim();
       soApply(await soPost('profiles/save', { name, channels: ch }));
