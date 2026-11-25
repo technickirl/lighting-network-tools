@@ -190,15 +190,15 @@ function soMain(f) { // the faders a tile always shows: its dimmers, or everythi
 function soPicked() { return so.fixtures.filter(f => soPick.has(f.id)).sort((a, b) => a.universe - b.universe || a.address - b.address); }
 function soMaster() { const p = soPicked(); return p.length > 1 ? p[0] : null; }
 
-// "Every N from M": the Mth fixture along the patch (universe, then address) and
+// "Starting from M select every N": the Mth fixture along the patch (universe, then address) and
 // every Nth after it. why says what stops it, for the button's tooltip.
 function soNth(n) { const t = n % 100; return n + (t > 10 && t < 14 ? 'th' : ['th', 'st', 'nd', 'rd'][n % 10] || 'th'); }
 function soEvery() {
   const num = id => { const s = $(id).value.trim(); return /^\d+$/.test(s) ? parseInt(s, 10) : 0; };
   const n = num('soEveryN'), from = num('soEveryFrom'), out = { n, from, ids: [], why: '' };
   if (!so.fixtures.length) out.why = 'No fixtures patched';
-  else if (n < 1) out.why = 'Every needs a whole number, 1 or more';
-  else if (from < 1) out.why = 'From needs a whole number, 1 or more';
+  else if (n < 1) out.why = 'Select every needs a whole number, 1 or more';
+  else if (from < 1) out.why = 'Starting from needs a whole number, 1 or more';
   else if (from > so.fixtures.length) out.why = `There are only ${so.fixtures.length} fixtures, so none is the ${soNth(from)}`;
   else out.ids = [...so.fixtures].sort((a, b) => a.universe - b.universe || a.address - b.address).filter((f, i) => i + 1 >= from && (i + 1 - from) % n === 0).map(f => f.id);
   return out;
@@ -242,7 +242,7 @@ function soRenderTiles() {
   }
   const ev = soEvery(), evBtn = $('btnSoPickEvery');
   evBtn.disabled = !ev.ids.length;
-  evBtn.title = ev.why || `Select ${ev.ids.length} of the ${so.fixtures.length} fixtures: every ${soNth(ev.n)} one from the ${soNth(ev.from)}, in address order. This replaces the selection`;
+  evBtn.title = ev.why || `Select ${ev.ids.length} of the ${so.fixtures.length} fixtures: starting from the ${soNth(ev.from)}, every ${soNth(ev.n)} one, in address order. This replaces the selection`;
   const rm = $('btnSoPickRemove');
   rm.disabled = !picked.length;
   rm.textContent = picked.length ? `Remove ${picked.length} selected` : 'Remove selected';
