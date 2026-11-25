@@ -219,6 +219,95 @@ func TestPatch(t *testing.T) {
 	}
 }
 
+// A universe can be carried without being sent, and one with nothing on it can
+// be ticked to send zeros.
+func TestUniverseSendTicks(t *testing.T) {
+	o, c := testOutput(t)
+	o.mu.Lock()
+	o.load()
+	if err := o.add("Par 1", "rgb", 1, 1, 1); err != nil {
+		t.Fatal(err)
+	}
+	if err := o.add("Par 2", "rgb", 2, 1, 1); err != nil {
+		t.Fatal(err)
+	}
+	if err := o.setSend(2, false); err != nil { // patched, but not sent
+		t.Fatal(err)
+	}
+	if err := o.setSend(9, true); err != nil { // nothing on it: zeros
+		t.Fatal(err)
+	}
+	if err := o.setSend(0, false); err != nil {
+		t.Fatal(err)
+	}
+	if err := o.setSend(1, true); err != nil {
+		t.Fatal(err)
+	}
+	if err := o.setSend(9, true); err != nil {
+		t.Fatal(err)
+	}
+	if err := o.setSend(70000, true); err == nil {
+		t.Error("universe 70000 was accepted")
+	}
+	o.clear() // an empty universe that was ticked is kept
+	o.mu.Unlock()
+	if us := o.sender.Universes(); len(us) != 3 || us[2] != 9 {
+		t.Fatalf("carried %v, want 1 2 9", us)
+	}
+	sentTo := func() map[uint16]int {
+		n := map[uint16]int{}
+		for _, d := range c.data() {
+			if d.Options&OptTerminated == 0 {
+				n[d.Universe]++
+			}
+		}
+		return n
+	}
+	if err := o.sender.Start("test0", 100, ""); err != nil {
+		t.Fatal(err)
+	}
+	time.Sleep(120 * time.Millisecond)
+	if n := sentTo(); n[1] == 0 || n[9] == 0 || n[2] != 0 {
+		t.Fatalf("sent %v, want universes 1 and 9 only", n)
+	}
+	for _, u := range o.state().Universes {
+		if want := u.Universe != 2; u.Sending != want {
+			t.Errorf("universe %d: sending %v", u.Universe, u.Sending)
+		}
+	}
+	// Unticking while it runs says so to receivers, then nothing more goes out.
+	o.mu.Lock()
+	_ = o.setSend(1, false)
+	_ = o.setSend(2, true)
+	o.mu.Unlock()
+	stopped := 0
+	for _, d := range c.data() {
+		if d.Universe == 1 && d.Options&OptTerminated != 0 {
+			stopped++
+		}
+	}
+	if stopped != 3 {
+		t.Errorf("%d stream-terminated packets on universe 1, want 3", stopped)
+	}
+	before := sentTo()
+	time.Sleep(120 * time.Millisecond)
+	if after := sentTo(); after[1] != before[1] || after[2] == 0 {
+		t.Errorf("after unticking 1 and ticking 2: %v then %v", before, after)
+	}
+	o.sender.Stop()
+
+	// What was ticked is remembered by the next run.
+	next := &output{sender: NewSender()}
+	next.mu.Lock()
+	next.load()
+	next.mu.Unlock()
+	for u, want := range map[uint16]bool{1: false, 2: true, 9: true} {
+		if got := next.sender.Sending(u); got != want {
+			t.Errorf("after a restart universe %d: sending %v, want %v", u, got, want)
+		}
+	}
+}
+
 func TestOutputRoutes(t *testing.T) {
 	_, c := testOutput(t)
 	mux := http.NewServeMux()

@@ -109,8 +109,8 @@
 <p>Shows what is arriving on each sACN universe. It only listens: nothing in this view changes a level or a device.</p>
 <ul>
 <li><p>Type the <strong>universes to listen to</strong>, for example <code>1-8, 33</code>, and press <strong>Listen</strong>. The list is remembered. Universes a console announces are added by themselves.</p></li>
-<li><p>Each universe is a tile with its source and frame rate: green for one source, grey for nothing arriving, amber for two sources at the same priority (usually a mistake).</p></li>
-<li><p>Click a tile for all 512 levels, live. <strong>On the wire</strong> is what a node would output (the highest priority, and the higher level where sources share it); click a source to see that source alone. <strong>Levels in %</strong> switches from 0-255.</p></li>
+<li><p>Each universe is a chip with a dot: green for one source, grey for nothing arriving, amber for two sources at the same priority (usually a mistake).</p></li>
+<li><p>Click a chip for its source, frame rate and all 512 levels, live. <strong>On the wire</strong> is what a node would output (the highest priority, and the higher level where sources share it); click a source to see that source alone. <strong>Levels in %</strong> switches from 0-255.</p></li>
 <li><p>A source that stops stays listed as lost for 30 seconds.</p></li>
 </ul>
 </section>
@@ -120,6 +120,7 @@
 <p>Makes the laptop a small sACN source, for testing a rig without a console. <strong>Nothing is sent until you press Start output, and it never starts by itself.</strong> While it is sending, every node listening to those universes puts the levels on its DMX outputs, so treat Start like bringing up a fader on a desk.</p>
 <ol>
 <li><p>Choose the network connection to send <strong>From</strong> (the wired show port, not Wi-Fi). Priority is 100 unless you change it.</p></li>
+<li><p>Each universe in the output is a chip with a <strong>tick box</strong>: ticked universes are sent, unticked ones are left out with their patch and levels kept. <strong>Select all</strong> and <strong>Deselect all</strong> do them all; <strong>Add universe</strong> adds an empty one, sent at zero. Click a chip's name to show only its fixtures.</p></li>
 <li><p>On <strong>Fixtures</strong>, add fixtures to the patch: a name, a profile, universe, address and how many in a row. Or use <strong>Patch</strong> on a fixture in the Fixtures view, which takes its universe, address and channels from RDM.</p></li>
 <li><p>Press <strong>Start output</strong>. The bar turns red while sending. <strong>Stop output</strong> tells the nodes the source has gone, so they return to their other sources at once.</p></li>
 </ol>

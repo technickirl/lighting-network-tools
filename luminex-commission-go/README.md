@@ -63,8 +63,9 @@ and **Export CSV** saves everything read, UIDs included. RDM is turned on per po
 Configure page, RDM tab (see `../docs/configure-page.md`, "RDM"). Used on a real rig of eight LumiNode 12s on
 12 Nov 2026.
 
-**sACN, View** shows what is arriving on each sACN universe: a tile per universe with its source
-and frame rate, and for the one clicked, all 512 levels (0-255, or **Levels in %**), updated eight
+**sACN, View** shows what is arriving on each sACN universe: a chip per universe, wrapping onto more rows, with a dot for its state (green one source, grey nothing
+arriving, amber two sources at the same priority, red could not listen), and for the one picked its source
+and frame rate and all 512 levels (0-255, or **Levels in %**), updated eight
 times a second. It only listens. Nothing in this view changes a level or a device; the one thing it
 sends is the join for each universe's multicast group (an IGMP report), which is how a switch knows
 to pass that universe to this computer. It starts listening (UDP 5568, shared with other sACN
@@ -93,6 +94,12 @@ it is given `--multicast` or `--to`, which put levels on a real network. Checked
 output off and every level at zero. While it is sending, any node listening to those universes
 puts the levels on its DMX outputs, so treat Start like bringing up a fader on a desk.
 
+- **Universes**: a chip for each universe in the output (one with a fixture patched, a level set, or added
+  here). Its **tick box** is whether it is sent: untick one and it is left out of the output, with its patch
+  and levels kept, and receivers are told it stopped if the output is on. **Select all** and **Deselect all**
+  tick or untick them all. **Add universe** adds one with nothing on it, ticked: it is sent with every channel
+  at zero. Clicking a chip's name shows only that universe's fixtures (**All** shows every one) and points the
+  Channels tab and the patch form at it. What is ticked is kept in `sacn-send.json` beside the patch.
 - The bar: the network connection to send from (chosen by the operator, never guessed; it is
   remembered), the priority (0-200, default 100) and the source name, all fixed while sending.
   **Stop output** tells receivers the source has stopped, so nodes go back to their other sources
@@ -123,7 +130,7 @@ puts the levels on its DMX outputs, so treat Start like bringing up a fader on a
   levels ends every highlight.
 - **Channels**: all 512 channels of any universe. Click to select (Shift-click for a range), then
   the fader or 0 / 50% / Full. Setting a level on a universe with no fixtures adds it to the output;
-  **Stop sending this universe** takes it out again.
+  **Take this universe out** removes it from the output again (also how an added, empty universe is removed).
 - **Profiles**: a profile is a name and its channels in DMX order, each with a type (dimmer, red,
   green, blue, white, amber, lime, uv, warm, cool, cyan, magenta, yellow, cct, pan, tilt, zoom,
   strobe, other), a

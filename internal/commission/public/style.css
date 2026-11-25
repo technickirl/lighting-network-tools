@@ -114,6 +114,25 @@ pre.txt { font-size: 10px; white-space: pre-wrap; word-break: break-all; color: 
 .node-chip-dot.busy { background: var(--warn); } .node-chip-dot.down { background: var(--error); } .node-chip-dot.off { background: #555; }
 .node-chip-ip { color: var(--muted); }
 .node-pick .log-line { margin-top: 0; }
+/* Universe chips (sACN View and Control): the same chip, wrapping. In Control a chip
+   has a tick box (sent or not) beside its name (show its fixtures). */
+.uni-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.uni-chip { display: inline-flex; align-items: center; gap: 8px; min-height: 44px; padding: 0 14px; border-radius: 4px; border: 1px solid var(--border2); background: var(--raised); color: var(--text); font: 500 13px var(--mono); cursor: pointer; }
+.uni-chip:hover { border-color: var(--muted); }
+.uni-chip.active { border-color: var(--accent); background: rgba(249,115,22,.16); color: #fff; }
+.uni-chip small { font-size: 12px; color: var(--muted); }
+.uni-chip.has-tick { padding: 0; gap: 0; cursor: default; }
+.uni-chip.has-tick label { display: flex; align-items: center; min-height: 44px; padding: 0 4px 0 12px; cursor: pointer; }
+.uni-chip.has-tick input { width: 20px; height: 20px; margin: 0; accent-color: var(--accent); cursor: pointer; }
+.uni-chip.has-tick button { display: inline-flex; align-items: center; gap: 8px; min-height: 44px; padding: 0 14px 0 8px; border: 0; background: none; color: inherit; font: inherit; cursor: pointer; }
+.uni-dot { width: 8px; height: 8px; border-radius: 50%; flex: none; background: #555; }
+.uni-dot.ok { background: var(--ok); } .uni-dot.warn { background: var(--warn); } .uni-dot.bad { background: var(--error); }
+.sacn-chips { margin-top: 10px; }
+.sacn-head-text { font-weight: 400; font-size: 13px; color: var(--muted); margin-left: 8px; }
+.sacn-text-ok { color: var(--text); } .sacn-text-warn { color: var(--warn); } .sacn-text-bad { color: var(--error); }
+.so-uni { margin-top: 14px; }
+.so-uni .uni-chips { margin-bottom: 8px; }
+.so-uni-add { margin-bottom: 0; }
 .node-chips:not(:empty) + .log-line { margin-top: 10px; }
 .node-status { grid-column: 2 / -1; font-size: 12px; color: var(--muted); }
 .node-status:empty { display: none; }
@@ -392,15 +411,6 @@ span.grp-cell { cursor: default; }
 .sacn-watch input[type=text] { font: 13px var(--mono); width: 200px; padding: 8px 10px; border-radius: 4px; border: 1px solid var(--border2); background: var(--bg); color: var(--text); }
 .sacn-found { font-size: 13px; margin: 10px 0; line-height: 1.6; }
 .sacn-where { margin-top: 10px; }
-.sacn-tiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 6px; margin-top: 10px; }
-.sacn-tile { display: flex; align-items: center; gap: 10px; text-align: left; padding: 8px 10px; border-radius: 4px; border: 1px solid var(--border); border-left: 3px solid var(--border2); background: var(--raised); color: var(--text); font: 12px var(--sans); cursor: pointer; min-width: 0; }
-.sacn-tile:hover { border-color: var(--muted); }
-.sacn-tile.active { border-color: var(--accent); }
-.sacn-tile-num { font: 600 15px var(--mono); min-width: 34px; }
-.sacn-tile-text { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--muted); }
-.sacn-ok { border-left-color: var(--ok); } .sacn-ok .sacn-tile-text { color: var(--text); }
-.sacn-warn { border-left-color: var(--warn); } .sacn-warn .sacn-tile-text { color: var(--warn); }
-.sacn-bad { border-left-color: var(--error); } .sacn-bad .sacn-tile-text { color: var(--error); white-space: normal; }
 .sacn-detail-head { font-weight: 600; margin: 18px 0 8px; padding-top: 14px; border-top: 1px solid var(--border); }
 .sacn-sources { display: flex; gap: 6px; flex-wrap: wrap; }
 .sacn-src { font-weight: 400; text-align: left; }

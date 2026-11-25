@@ -124,6 +124,20 @@
           <button class="btn" id="btnSoClear" disabled>Clear all levels</button>
         </div>
         <div id="soBanner" class="banner hidden"></div>
+        <!-- A chip per universe in the output: the tick box is whether it is sent, the name shows its fixtures. -->
+        <div class="so-uni">
+          <div class="so-form">
+            <span id="soUniInfo" class="muted"></span><span class="spacer"></span>
+            <button class="btn btn-small" id="btnSoSendAll" disabled>Select all</button>
+            <button class="btn btn-small" id="btnSoSendNone" disabled>Deselect all</button>
+          </div>
+          <div id="soUniChips" class="uni-chips"></div>
+          <div class="so-form so-uni-add">
+            <label title="A universe with nothing patched is sent with every channel at zero">Add universe <input type="text" inputmode="numeric" id="soUniAdd" class="so-num" autocomplete="off"></label>
+            <button class="btn btn-small" id="btnSoUniAdd" disabled title="Type a universe first">Add</button>
+            <span id="soUniNote"></span>
+          </div>
+        </div>
         <div class="so-tabs">
           <button class="so-tab" data-so="fixtures">Fixtures</button>
           <button class="so-tab" data-so="channels">Channels</button>
@@ -157,7 +171,7 @@
             <label>Universe <input type="text" inputmode="numeric" id="soRawUniverse" value="1" class="so-num" autocomplete="off"></label>
             <span id="soRawInfo" class="muted"></span>
             <span class="spacer"></span>
-            <button class="btn btn-small" id="btnSoRelease" disabled>Stop sending this universe</button>
+            <button class="btn btn-small" id="btnSoRelease" disabled>Take this universe out</button>
           </div>
           <div class="so-form">
             <span id="soRawSel" class="muted">Click channels to select them (Shift-click for a range).</span>
