@@ -11,11 +11,11 @@
 <div class="nc-main">
   <!-- Five tabs. Device opens first: nothing on it changes the node by one click. -->
   <nav>
-    <button class="tab active" data-tab="device">◈ Device</button>
-    <button class="tab" data-tab="quicksetup">⚡ Quick Setup</button>
-    <button class="tab" data-tab="profiles">◧ Profiles</button>
-    <button class="tab" data-tab="rdm">✳ RDM</button>
-    <button class="tab" data-tab="advanced">⚙ Advanced</button>
+    <button class="tab active" data-tab="device">Device</button>
+    <button class="tab" data-tab="quicksetup">Quick Setup</button>
+    <button class="tab" data-tab="profiles">Profiles</button>
+    <button class="tab" data-tab="rdm">RDM</button>
+    <button class="tab" data-tab="advanced">Advanced</button>
   </nav>
 
   <div class="content">
@@ -25,7 +25,7 @@
     <div class="panel active" id="p-device">
       <!-- Overview -->
       <div class="section" id="p-overview">
-        <div class="sec-head">DEVICE OVERVIEW
+        <div class="sec-head">Device
           <div style="display:flex;gap:6px">
             <button class="btn sm warn" id="btn-identify" disabled>⊹ IDENTIFY</button>
             <button class="btn sm dan" id="btn-reboot" disabled>↺ REBOOT</button>
@@ -39,7 +39,7 @@
 
       <!-- Network -->
       <div class="section" id="p-network">
-        <div class="sec-head">NETWORK</div>
+        <div class="sec-head">Name and address</div>
         <div id="net-body">
           <div class="empty"><div class="icon">⌘</div>
           <p>No device connected</p></div>
@@ -49,7 +49,7 @@
 
     <!-- Quick Setup -->
     <div class="panel" id="p-quicksetup">
-      <div class="sec-head">QUICK SETUP — sACN INPUT PER PORT
+      <div class="sec-head">Quick Setup: one sACN universe for each port
         <span style="font-family:var(--ff);font-size:10px;color:var(--dim)">REROUTE MODE</span>
       </div>
       <p style="font-family:var(--ff);font-size:11px;color:var(--dim);margin-bottom:16px">
@@ -65,7 +65,7 @@
 
     <!-- RDM -->
     <div class="panel" id="p-rdm">
-      <div class="sec-head">RDM FIXTURES
+      <div class="sec-head">RDM fixtures
         <span style="margin-left:auto;display:flex;gap:6px">
           <button class="btn sm sec" id="btn-rdm-read-all" disabled title="Connect to a device first">↻ READ ALL PORTS</button>
           <button class="btn sm" id="btn-rdm-csv" disabled title="Read some fixtures first">⇩ EXPORT CSV</button>
@@ -80,7 +80,7 @@
 
     <!-- Profiles -->
     <div class="panel" id="p-profiles">
-      <div class="sec-head">PROFILES</div>
+      <div class="sec-head">Profiles</div>
       <div id="prof-body">
         <div class="empty"><div class="icon">◧</div>
         <p>No device connected</p></div>
@@ -90,14 +90,14 @@
     <!-- Advanced: the views for building a node's routing by hand -->
     <div class="panel" id="p-advanced">
       <div class="subtabs" id="adv-tabs">
-        <button class="btn sm active-tab" data-adv="processblocks">⚙ PROCESS</button>
-        <button class="btn sm" data-adv="ios">⬡ IOS</button>
-        <button class="btn sm" data-adv="dmx">◎ DMX</button>
-        <button class="btn sm" data-adv="startup">⊡ STARTUP</button>
+        <button class="btn sm active-tab" data-adv="processblocks">Process</button>
+        <button class="btn sm" data-adv="ios">IOs</button>
+        <button class="btn sm" data-adv="dmx">DMX</button>
+        <button class="btn sm" data-adv="startup">Startup</button>
       </div>
       <!-- Process Blocks -->
       <div class="subpanel active" id="p-processblocks">
-        <div class="sec-head">PROCESS BLOCKS
+        <div class="sec-head">Process blocks
           <span class="live" id="live-pb" style="display:none">
             <span class="ldot"></span>LIVE
           </span>
@@ -110,7 +110,7 @@
 
       <!-- IOs -->
       <div class="subpanel" id="p-ios">
-        <div class="sec-head">INPUT / OUTPUT CONFIGURATION
+        <div class="sec-head">Inputs and outputs
           <span class="live" id="live-io" style="display:none">
             <span class="ldot"></span>LIVE
           </span>
@@ -141,7 +141,7 @@
 
       <!-- DMX Ports -->
       <div class="subpanel" id="p-dmx">
-        <div class="sec-head">DMX PORT STATE
+        <div class="sec-head">DMX port state
           <span class="live" id="live-dmx" style="display:none">
             <span class="ldot"></span>LIVE
           </span>
@@ -154,7 +154,7 @@
 
       <!-- Startup buffer (panel was missing in v28: the page script crashed on btn-apply-all-startup) -->
       <div class="subpanel" id="p-startup">
-        <div class="sec-head">STARTUP BUFFER — SNAPSHOT PER PROCESS BLOCK
+        <div class="sec-head">Startup buffer: a snapshot for each process block
           <button class="btn sm pri" id="btn-apply-all-startup" disabled
             title="Apply the selected snapshot to every process block">⊡ APPLY ALL</button>
         </div>

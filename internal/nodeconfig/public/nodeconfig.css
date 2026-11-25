@@ -1,21 +1,23 @@
 /* The node page lives inside the device list's page (in #nodeHost, class "nc"),
    so every rule here starts with .nc and cannot reach the rest of that page.
-   The greys are the device list's own, so the two read as one page. */
+   Its colours and fonts are that page's (the :root variables of its style.css):
+   the names below are this file's older ones, pointed at them, so the two are
+   one look and a colour is changed in one place. */
 .nc *{box-sizing:border-box;margin:0;padding:0}
 .nc{
-  --bg:#0e0e0f;--surface:#161618;--panel:#1d1d20;
-  --border:#2a2a2e;--border2:#353539;
-  --text:#d4d4d8;--dim:#7c7c86;--bright:#f4f4f5;
-  --amber:#e09820;--cyan:#18b8d8;--green:#28c868;
-  --red:#d03048;--purple:#8050d8;--orange:#e06030;
-  --ff:ui-monospace,'Cascadia Code','Consolas','Menlo',monospace;
-  --fs:-apple-system,'Segoe UI',system-ui,sans-serif;
+  --panel:var(--raised);--dim:var(--muted);--bright:#f4f4f5;
+  --amber:var(--accent);--cyan:var(--info);--green:var(--ok);
+  --red:var(--error);--purple:#a78bfa;--orange:var(--warn);
+  --ff:var(--mono);--fs:var(--sans);
 }
-.nc{background:var(--bg);color:var(--text);border-top:1px solid var(--border);
-  border-radius:0 0 6px 6px;font-family:var(--fs);font-size:13px;line-height:1.5}
+.nc{color:var(--text);border-top:1px solid var(--border);
+  font-family:var(--fs);font-size:13px;line-height:1.5}
 /* Rules of the device list's page that share a class name with this one. */
 .nc .modal{position:static;inset:auto;display:block;z-index:auto}
 .nc .spin::before{content:none}
+/* Text boxes and lists with no rule of their own look like the device list's. */
+.nc :where(input[type=text],input[type=number],input[type=password],select){font:13px var(--mono);
+  padding:6px 8px;border-radius:4px;border:1px solid var(--border2);background:var(--bg);color:var(--text)}
 
 /* ── Status ── */
 .nc #conn-badge{font-family:var(--ff);font-size:11px;display:flex;
@@ -27,52 +29,64 @@
 
 /* ── Toolbar ── */
 .nc .toolbar{display:flex;align-items:center;gap:8px;flex-wrap:wrap;
-  padding:8px 20px;background:var(--panel);border-bottom:1px solid var(--border)}
+  padding:8px 16px;border-bottom:1px solid var(--border)}
 
-/* ── Buttons ── */
-.nc .btn{font-family:var(--ff);font-size:11px;font-weight:600;letter-spacing:1px;
-  padding:5px 13px;border-radius:2px;border:1px solid var(--border2);
-  background:none;color:var(--text);cursor:pointer;transition:all .12s;white-space:nowrap}
-.nc .btn:hover{background:var(--border);color:var(--bright)}
-.nc .btn.pri{border-color:var(--amber);color:var(--amber)}
-.nc .btn.pri:hover{background:var(--amber);color:var(--bg)}
-.nc .btn.sec{border-color:var(--cyan);color:var(--cyan)}
-.nc .btn.sec:hover{background:var(--cyan);color:var(--bg)}
-.nc .btn.dan{border-color:var(--red);color:var(--red)}
-.nc .btn.dan:hover{background:var(--red);color:#fff}
-.nc .btn.warn{border-color:var(--orange);color:var(--orange)}
-.nc .btn.warn:hover{background:var(--orange);color:#fff}
-.nc .btn.sm{padding:3px 9px;font-size:10px}
-.nc .btn:disabled{opacity:.35;cursor:default;pointer-events:none}
+/* ── Buttons: the device list's, with this page's kinds (pri, sec, dan, warn, sm) ── */
+.nc .btn{font:600 12px var(--sans);letter-spacing:0;padding:6px 12px;border-radius:4px;
+  border:1px solid var(--border2);background:var(--raised);color:var(--text);cursor:pointer;white-space:nowrap}
+.nc .btn:hover:not(:disabled){border-color:var(--muted);color:#fff}
+.nc .btn.pri{background:var(--accent);border-color:var(--accent);color:#000}
+.nc .btn.pri:hover:not(:disabled){border-color:var(--accent);color:#000;filter:brightness(1.12)}
+.nc .btn.sec{border-color:var(--info);color:var(--info)}
+.nc .btn.sec:hover:not(:disabled){background:var(--info);border-color:var(--info);color:#000}
+.nc .btn.dan{border-color:#7f1d1d;color:var(--error)}
+.nc .btn.dan:hover:not(:disabled){background:var(--error);border-color:var(--error);color:#fff}
+.nc .btn.warn{border-color:var(--warn);color:var(--warn)}
+.nc .btn.warn:hover:not(:disabled){background:var(--warn);border-color:var(--warn);color:#000}
+.nc .btn.sm{padding:3px 10px}
+/* No pointer-events:none here: a disabled button still has to show its tooltip. */
+.nc .btn:disabled{opacity:.4;cursor:not-allowed}
 
-/* ── Layout ── */
-.nc .nc-main{display:flex;align-items:flex-start}
-.nc nav{width:140px;flex-shrink:0;background:var(--surface);position:sticky;top:48px;
-  border-right:1px solid var(--border);display:flex;
-  flex-direction:column;gap:1px;padding:12px 0}
-.nc .tab{display:flex;align-items:center;gap:8px;padding:9px 16px;
-  border:none;background:none;color:var(--dim);font-family:var(--ff);
-  font-size:11px;font-weight:600;letter-spacing:1px;text-transform:uppercase;
-  cursor:pointer;text-align:left;width:100%;
-  border-left:2px solid transparent;transition:all .12s}
-.nc .tab:hover{color:var(--text);background:var(--panel)}
-.nc .tab.active{color:var(--amber);border-left-color:var(--amber);background:var(--panel)}
-.nc .content{flex:1;min-width:0;padding:20px}
+/* ── Layout: a row of tabs, as the sACN view has ── */
+.nc .nc-main{display:block}
+.nc nav{display:flex;flex-wrap:wrap;gap:4px;padding:0 12px;border-bottom:1px solid var(--border)}
+.nc .tab{font:600 13px var(--sans);min-height:40px;padding:0 14px;border:0;background:none;color:var(--muted);
+  border-bottom:2px solid transparent;margin-bottom:-1px;cursor:pointer}
+.nc .tab:hover{color:var(--text)}
+.nc .tab.active{color:var(--accent);border-bottom-color:var(--accent)}
+.nc .content{padding:16px}
 .nc .panel{display:none}
 .nc .panel.active{display:block}
 .nc .subpanel{display:none}
 .nc .subpanel.active{display:block}
+/* The parts of Advanced: the same buttons as the parts of Devices and sACN. */
 .nc .subtabs{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:16px}
+.nc .subtabs .btn{min-height:34px;padding:0 14px;color:var(--muted)}
+.nc .subtabs .btn.active-tab{color:#fff;border-color:var(--accent);background:rgba(249,115,22,.16)}
 .nc .section + .section{margin-top:24px}
 /* The RDM tick box keeps its size whatever its state, so the port's row never moves. */
-.nc .rdm-tick{display:inline-flex;align-items:center;gap:6px;min-width:58px;font-family:var(--ff);font-size:11px;font-weight:700;letter-spacing:1px;color:var(--dim);cursor:pointer}
+.nc .rdm-tick{display:inline-flex;align-items:center;gap:6px;min-width:58px;font:600 12px var(--sans);color:var(--dim);cursor:pointer}
 .nc .rdm-tick.on{color:var(--green)}
 .nc .rdm-tick input{width:16px;height:16px;margin:0;accent-color:var(--green);cursor:pointer}
 .nc .rdm-tick input:disabled{cursor:default}
 
+/* ── Quick Setup ── */
+.nc #qs-ports{grid-template-columns:repeat(auto-fill,minmax(210px,1fr))}
+.nc .qs-port{background:var(--raised);border:1px solid var(--border);border-radius:4px;padding:10px 12px}
+.nc .qs-port-head{display:flex;justify-content:space-between;align-items:flex-start;gap:8px;margin-bottom:10px}
+.nc .qs-port-num{font:600 13px var(--sans);color:#fff}
+.nc .qs-port-label{font-size:12px;color:var(--muted)}
+.nc .qs-port-body{display:flex;align-items:center;gap:10px}
+.nc .qs-uni-label{flex:1;font-size:12px;color:var(--muted)}
+.nc .qs-uni-input{width:92px;font:600 16px var(--mono);color:var(--accent)}
+.nc .qs-status{min-height:18px;margin-top:6px;font-size:12px;color:var(--muted)}
+.nc .qs-status.err{color:var(--error)}
+.nc .qs-status.ok{color:var(--ok)}
+.nc .qs-apply-bar{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-top:16px}
+.nc .qs-apply-hint{font-size:12px;color:var(--muted)}
+
 /* ── Components ── */
-.nc .sec-head{font-family:var(--ff);font-size:10px;font-weight:700;
-  letter-spacing:3px;color:var(--dim);padding-bottom:8px;margin-bottom:14px;
+.nc .sec-head{font:600 14px var(--sans);color:var(--text);gap:10px;padding-bottom:8px;margin-bottom:14px;
   border-bottom:1px solid var(--border);display:flex;
   align-items:center;justify-content:space-between}
 .nc .live{display:inline-flex;align-items:center;gap:4px;
@@ -85,7 +99,7 @@
 .nc .grid2{display:grid;gap:10px;grid-template-columns:repeat(auto-fill,minmax(300px,1fr))}
 .nc .grid3{display:grid;gap:10px;grid-template-columns:repeat(auto-fill,minmax(240px,1fr))}
 
-.nc .card{background:var(--panel);border:1px solid var(--border);border-radius:3px;overflow:hidden}
+.nc .card{background:var(--panel);border:1px solid var(--border);border-radius:4px;overflow:hidden}
 .nc .card-head{display:flex;align-items:center;justify-content:space-between;
   padding:8px 12px;background:var(--surface);border-bottom:1px solid var(--border)}
 .nc .card-title{font-family:var(--ff);font-size:11px;font-weight:700;color:var(--bright)}
@@ -103,15 +117,15 @@
 
 .nc .badge{font-family:var(--ff);font-size:9px;padding:2px 6px;
   border-radius:2px;border:1px solid;font-weight:700}
-.nc .b-htp{color:var(--green);border-color:var(--green);background:rgba(40,200,104,.08)}
-.nc .b-ltp{color:var(--cyan);border-color:var(--cyan);background:rgba(24,184,216,.08)}
-.nc .b-bak{color:var(--purple);border-color:var(--purple);background:rgba(128,80,216,.08)}
-.nc .b-xfd{color:var(--amber);border-color:var(--amber);background:rgba(224,152,32,.08)}
+.nc .b-htp{color:var(--green);border-color:var(--green);background:rgba(34,197,94,.08)}
+.nc .b-ltp{color:var(--cyan);border-color:var(--cyan);background:rgba(96,165,250,.08)}
+.nc .b-bak{color:var(--purple);border-color:var(--purple);background:rgba(167,139,250,.08)}
+.nc .b-xfd{color:var(--amber);border-color:var(--amber);background:rgba(249,115,22,.08)}
 .nc .b-dim{color:var(--dim);border-color:var(--dim)}
-.nc .b-out{color:var(--amber);border-color:var(--amber);background:rgba(224,152,32,.1)}
-.nc .b-in{color:var(--cyan);border-color:var(--cyan);background:rgba(24,184,216,.1)}
-.nc .b-ok{color:var(--green);border-color:var(--green);background:rgba(40,200,104,.1)}
-.nc .b-err{color:var(--red);border-color:var(--red);background:rgba(208,48,72,.1)}
+.nc .b-out{color:var(--amber);border-color:var(--amber);background:rgba(249,115,22,.1)}
+.nc .b-in{color:var(--cyan);border-color:var(--cyan);background:rgba(96,165,250,.1)}
+.nc .b-ok{color:var(--green);border-color:var(--green);background:rgba(34,197,94,.1)}
+.nc .b-err{color:var(--red);border-color:var(--red);background:rgba(239,68,68,.1)}
 
 .nc .bar{height:3px;background:var(--border);border-radius:2px;margin-top:8px;overflow:hidden}
 .nc .bar-fill{height:100%;background:var(--cyan);border-radius:2px;transition:width .4s}
@@ -161,7 +175,7 @@
 @keyframes tin{from{opacity:0;transform:translateX(16px)}to{opacity:1;transform:none}}
 
 /* ── Process / IOs pages ── */
-.nc .btn.active-tab{border-color:var(--amber);color:var(--amber);background:rgba(224,152,32,.1)}
+.nc .btn.active-tab{border-color:var(--accent);color:var(--accent);background:rgba(249,115,22,.12)}
 .nc .filters{display:flex;gap:14px;flex-wrap:wrap;align-items:center;margin-bottom:14px}
 .nc .filters .fgroup{display:flex;gap:4px;align-items:center}
 .nc .filters .flabel{font-family:var(--ff);font-size:10px;color:var(--dim);letter-spacing:1px;margin-right:4px}
@@ -213,7 +227,7 @@
 .nc .b-int{color:var(--dim);border-color:var(--dim)}
 
 /* ── Warning banner ── */
-.nc .warn-banner{background:rgba(208,48,72,.1);border:1px solid var(--red);
+.nc .warn-banner{background:rgba(239,68,68,.1);border:1px solid var(--red);
   border-radius:3px;padding:8px 12px;margin-bottom:14px;
   font-family:var(--ff);font-size:11px;color:var(--red)}
 
@@ -250,7 +264,7 @@
 .nc table.rdm td.num{text-align:right;color:var(--bright)}
 .nc table.rdm td.addr{color:var(--amber);font-weight:700}
 .nc table.rdm td .sub{color:var(--dim);font-size:10px;margin-left:4px}
-.nc table.rdm tr.clash td{background:rgba(208,48,72,.08)}
+.nc table.rdm tr.clash td{background:rgba(239,68,68,.08)}
 .nc table.rdm tr.clash td.addr{color:var(--red)}
 .nc table.rdm tr.err td{color:var(--dim)}
 .nc table.rdm td.why{color:var(--red);white-space:normal;font-size:10px}
@@ -283,7 +297,7 @@
 .nc .rdm-tile.sel{border-color:var(--cyan);box-shadow:inset 0 0 0 1px var(--cyan)}
 .nc .rdm-tile.open{border-color:var(--amber)}
 .nc .rdm-tile.picked{border-color:var(--amber);box-shadow:inset 0 0 0 1px var(--amber)}
-.nc .rdm-tile.clash{background:rgba(208,48,72,.10)}
+.nc .rdm-tile.clash{background:rgba(239,68,68,.10)}
 .nc .rdm-tile.err{opacity:.6}
 .nc .rdm-tile-addr{font-size:20px;font-weight:700;color:var(--amber)}
 .nc .rdm-tile.clash .rdm-tile-addr{color:var(--red)}
@@ -297,8 +311,8 @@
 .nc .rdm-check{position:absolute;top:6px;right:6px;background:none;border:none;color:var(--text);font-size:15px;cursor:pointer;padding:0 2px;line-height:1}
 .nc table.rdm td.pick{width:24px;padding:3px 4px 3px 10px}
 .nc table.rdm td.pick .rdm-check{position:static}
-.nc table.rdm tr.picked td{background:rgba(24,184,216,.08)}
-.nc .rdm-batch{display:flex;align-items:center;gap:6px;flex-wrap:wrap;padding:8px 12px;border-bottom:1px solid var(--border);background:rgba(24,184,216,.06);font-family:var(--ff);font-size:11px}
+.nc table.rdm tr.picked td{background:rgba(96,165,250,.08)}
+.nc .rdm-batch{display:flex;align-items:center;gap:6px;flex-wrap:wrap;padding:8px 12px;border-bottom:1px solid var(--border);background:rgba(96,165,250,.06);font-family:var(--ff);font-size:11px}
 .nc .rdm-batch b{color:var(--cyan);margin-right:4px}
 .nc .rdm-batch-extra{flex-basis:100%;display:flex;align-items:center;gap:6px;flex-wrap:wrap;padding-top:4px}
 .nc .rdm-batch select,.nc .rdm-batch input,.nc .rdm-side select,.nc .rdm-side input{font-family:var(--ff);font-size:11px;background:var(--bg);border:1px solid var(--border2);color:var(--bright);padding:3px 6px;border-radius:2px;max-width:220px}
@@ -328,7 +342,7 @@
 .nc .rdm-addr-tap:hover{border-bottom-color:var(--amber)}
 .nc .rdm-tile-addr.typing{display:flex;align-items:center;gap:6px}
 .nc .rdm-tile-hint{font-size:9px;color:var(--amber);margin-top:2px}
-.nc .rdm-typebar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:7px 12px;border-bottom:1px solid var(--border);background:rgba(224,152,32,.07);font-family:var(--ff);font-size:11px}
+.nc .rdm-typebar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:7px 12px;border-bottom:1px solid var(--border);background:rgba(249,115,22,.07);font-family:var(--ff);font-size:11px}
 .nc .rdm-typebar b{color:var(--amber)}
 .nc .rdm-typebar .dim{color:var(--dim)}
 .nc .rdm-typebar input{width:60px;font-family:var(--ff);font-size:12px;background:var(--bg);border:1px solid var(--border2);color:var(--bright);padding:2px 5px;border-radius:2px}
@@ -375,7 +389,8 @@
 @media (pointer: coarse){
   .nc .rdm-tick{min-height:44px;font-size:12px}
   .nc .rdm-tick input{width:22px;height:22px}
-  .nc .subtabs .btn.sm{padding:9px 13px;font-size:12px}
+  .nc .subtabs .btn{min-height:44px}
+  .nc .tab{min-height:44px}
   .nc #p-rdm .btn.sm,.nc .rdm-side .btn.sm{padding:9px 13px;font-size:12px}
   .nc .rdm-check{font-size:24px;top:4px;right:4px;padding:4px 6px}
   .nc table.rdm td.pick .rdm-check{font-size:22px}
