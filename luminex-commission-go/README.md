@@ -105,8 +105,8 @@ puts the levels on its DMX outputs, so treat Start like bringing up a fader on a
   iPad can each have their own.
 - **Highlight** fades a fixture to its profile's highlight levels over half a second, to find it
   on the rig; clicking again fades it back to the levels it had before. The levels belong to the
-  profile, one per channel: by default the dimmer at 50% (128) and red, green and blue at full,
-  with other channels left where they are (a profile with no red, green or blue brings up its
+  profile, one per channel: by default the dimmer at 50% (128), red, green and blue at full and
+  cyan, magenta and yellow at zero, with other channels left where they are (a profile with no red, green or blue brings up its
   white, warm and cool instead). Several fixtures can be highlighted at once. A fader moved on a
   highlighted channel goes back to its earlier level when the highlight ends, and Clear all
   levels ends every highlight.
@@ -114,12 +114,17 @@ puts the levels on its DMX outputs, so treat Start like bringing up a fader on a
   the fader or 0 / 50% / Full. Setting a level on a universe with no fixtures adds it to the output;
   **Stop sending this universe** takes it out again.
 - **Profiles**: a profile is a name and its channels in DMX order, each with a type (dimmer, red,
-  green, blue, white, amber, lime, uv, warm, cool, cct, pan, tilt, zoom, strobe, other), a
+  green, blue, white, amber, lime, uv, warm, cool, cyan, magenta, yellow, cct, pan, tilt, zoom,
+  strobe, other), a
   default level and a highlight level (empty leaves the channel alone when highlighting). Nine plain ones are built in. **New profile** or **Copy** opens the editor;
   **Export** saves one as a `.sacn-profile.json` file and **Import a profile file…** loads one, for
   sharing between computers. On the Fixtures view, **Patch** on an RDM fixture adds it at its own
-  universe, address and channel count, with a profile named after its model and personality (plain
-  numbered channels, to be named in the editor once).
+  universe, address and channel count, with a profile named after its model and personality. The
+  fixture is asked over RDM what each channel is (SLOT_INFO for the type, SLOT_DESCRIPTION for the
+  name, both reads; `GET /api/node/<ip>/rdm/<port>/fixture/<uid>/slots`), so the profile gets
+  typed channels and the standard highlight: dimmer 50%, red, green and blue 100%, cyan, magenta
+  and yellow 0. A fixture that answers neither gets plain numbered channels and no highlight until
+  they are set in the editor. A profile already saved under that name is used as it is.
 - It sends up to 32 universes at 40 Hz each, multicast with a TTL of 1, and announces them
   (universe discovery). The patch and the operator's profiles are kept in the user config folder
   (`sacn-patch.json`, `sacn-profiles.json`) and so are shared with an iPad; levels are not kept.

@@ -30,7 +30,7 @@ import (
 
 // ChannelTypes are what a profile's channel can be. The page colours a fader by it,
 // and "dimmer" is the one a fixture's tile shows first.
-var ChannelTypes = []string{"dimmer", "red", "green", "blue", "white", "amber", "lime", "uv", "warm", "cool", "cct", "pan", "tilt", "zoom", "strobe", "other"}
+var ChannelTypes = []string{"dimmer", "red", "green", "blue", "white", "amber", "lime", "uv", "warm", "cool", "cyan", "magenta", "yellow", "cct", "pan", "tilt", "zoom", "strobe", "other"}
 
 // Channel is one DMX channel of a profile.
 type Channel struct {
@@ -46,8 +46,8 @@ type Channel struct {
 var HighlightFade = 500 * time.Millisecond
 
 // defaultHighlights fills in the channels that have no highlight level: dimmer at
-// 50% and red, green and blue at full, so a fixture shows up white without
-// blinding anyone. A profile with no red, green or blue brings its whites up instead.
+// 50%, red, green and blue at full and cyan, magenta and yellow at zero, so a
+// fixture shows up white without blinding anyone. A profile with no red, green or blue brings its whites up instead.
 func defaultHighlights(cs []Channel) {
 	rgb := false
 	for _, c := range cs {
@@ -63,6 +63,8 @@ func defaultHighlights(cs []Channel) {
 			v = 128
 		case "red", "green", "blue":
 			v = 255
+		case "cyan", "magenta", "yellow":
+			v = 0 // subtractive: zero is open white
 		case "white", "warm", "cool":
 			if !rgb {
 				v = 255

@@ -191,6 +191,6 @@ fxEls.body.addEventListener('click', async ev => {
   const port = n && n.ports.find(x => String(x.port) === b.dataset.patchPort);
   const f = n && port && n.read[port.port] && n.read[port.port].fixtures.find(x => x.uid === b.dataset.patchUid);
   if (!f) return;
-  try { fxEls.note.textContent = '› ' + await sacnPatchFromRdm(f, fxSacnUniverse(port)); }
+  try { fxEls.note.textContent = '› ' + await sacnPatchFromRdm(f, fxSacnUniverse(port), `/api/node/${n.ip}/rdm/${port.port}/fixture/${encodeURIComponent(f.uid)}/slots`); }
   catch (e) { fxEls.note.textContent = '› Not patched: ' + e.message; }
 });

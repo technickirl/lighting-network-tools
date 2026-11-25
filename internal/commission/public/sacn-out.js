@@ -353,16 +353,27 @@ soEls.add.addEventListener('click', soAdd);
 
 // Called by the Fixtures view's Patch button: patch a fixture that RDM has read,
 // making a plain profile of the right size if none has its name yet.
-async function sacnPatchFromRdm(f, universe) {
+// slotsUrl is the fixture's /slots address on its node: where it says, over RDM, what
+// each channel is. Channels it describes get their type's usual highlight level from
+// the server (dimmer 50%, red, green and blue full, cyan, magenta and yellow zero).
+async function sacnPatchFromRdm(f, universe, slotsUrl) {
   if (!so) soApply(await fxCall('/api/sacn/out'));
   const profile = ([f.model, f.personalityName].filter(Boolean).join(' ') || `RDM fixture ${f.footprint} ch`).slice(0, 80);
+  let how = `the profile "${profile}", which was already saved`;
   if (!so.profiles.some(p => p.name.toLowerCase() === profile.toLowerCase())) {
-    const channels = Array.from({ length: f.footprint }, (x, i) => ({ name: `Ch ${i + 1}`, type: 'other', default: 0, highlight: -1 }));
+    let channels = null;
+    try {
+      const d = slotsUrl ? await fxCall(slotsUrl) : null;
+      if (d && d.slots && d.slots.length === f.footprint) channels = d.slots.map(s => ({ name: s.name, type: so.types.includes(s.type) ? s.type : 'other', default: 0 }));
+    } catch { /* the fixture does not describe its channels */ }
+    how = channels ? `a new profile "${profile}", with its channels as the fixture describes them`
+      : `a new profile "${profile}". The fixture does not say what its channels are, so they are numbered and Highlight is off until you set them on sACN control, Profiles`;
+    channels = channels || Array.from({ length: f.footprint }, (x, i) => ({ name: `Ch ${i + 1}`, type: 'other', default: 0, highlight: -1 }));
     soApply(await soPost('profiles/save', { name: profile, channels }));
   }
   const name = (f.label || f.model || f.uid).slice(0, 60);
   soApply(await soPost('fixtures/add', { name, profile, universe, address: f.start, count: 1 }));
-  return `Patched ${name} at universe ${universe}, address ${f.start} with the profile "${profile}". Name its channels on sACN control, Profiles.`;
+  return `Patched ${name} at universe ${universe}, address ${f.start} with ${how}.`;
 }
 
 // ─── Channels ───────────────────────────────────────────────────────────────

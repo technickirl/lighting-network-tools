@@ -229,3 +229,9 @@ its node to the new address.
   stopped (three Stream_Terminated packets). `outputFrames` kept counting, and after the node's stream activity
   time (6 s here) the port read `streaming_continues`: it holds the last levels on the DMX line. The sACN view on
   the same computer showed the source as lost / stopped at once. Whether a fixture moved was not watched.
+- RDM slots, for patching a fixture on sACN control (25 Nov 2026): `GET SLOT_INFO` (0x0120) answers five octets a
+  slot (offset, slot type, slot label ID) and `GET SLOT_DESCRIPTION` (0x0121, the slot's offset) its name. The label
+  IDs in `internal/nodeconfig/rdm_slots.go` are E1.20 table C-2 written from memory (0x0001 intensity, 0x0202 cyan,
+  0x0203 yellow, 0x0204 magenta, 0x0205-0x0207 red, green, blue, ...): **check them against the standard or a real
+  fixture before relying on them.** Only the fake node's fixtures have answered these so far; no real fixture has
+  been asked, and many do not support either request.
