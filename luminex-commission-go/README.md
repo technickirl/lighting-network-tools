@@ -95,14 +95,21 @@ puts the levels on its DMX outputs, so treat Start like bringing up a fader on a
   it and says who wins: the higher priority, or the higher level per channel when they are equal.
 - **Fixtures**: add fixtures to the patch (name, profile, universe, address, how many in a row;
   names ending in a number count up). Each gets a tile with its dimmer (or all its channels when it
-  has no dimmer), Off and Full, and its other channels under More, where Remove is too. Two
-  fixtures cannot share a channel.
+  has no dimmer), Off, Full and Highlight, and its other channels under More, where Remove is too.
+  Two fixtures cannot share a channel.
+- **Highlight** fades a fixture to its profile's highlight levels over half a second, to find it
+  on the rig; clicking again fades it back to the levels it had before. The levels belong to the
+  profile, one per channel: by default the dimmer at 50% (128) and red, green and blue at full,
+  with other channels left where they are (a profile with no red, green or blue brings up its
+  white, warm and cool instead). Several fixtures can be highlighted at once. A fader moved on a
+  highlighted channel goes back to its earlier level when the highlight ends, and Clear all
+  levels ends every highlight.
 - **Channels**: all 512 channels of any universe. Click to select (Shift-click for a range), then
   the fader or 0 / 50% / Full. Setting a level on a universe with no fixtures adds it to the output;
   **Stop sending this universe** takes it out again.
 - **Profiles**: a profile is a name and its channels in DMX order, each with a type (dimmer, red,
-  green, blue, white, amber, lime, uv, warm, cool, cct, pan, tilt, zoom, strobe, other) and a
-  default level. Nine plain ones are built in. **New profile** or **Copy** opens the editor;
+  green, blue, white, amber, lime, uv, warm, cool, cct, pan, tilt, zoom, strobe, other), a
+  default level and a highlight level (empty leaves the channel alone when highlighting). Nine plain ones are built in. **New profile** or **Copy** opens the editor;
   **Export** saves one as a `.sacn-profile.json` file and **Import a profile file…** loads one, for
   sharing between computers. On the Fixtures view, **Patch** on an RDM fixture adds it at its own
   universe, address and channel count, with a profile named after its model and personality (plain
@@ -113,7 +120,7 @@ puts the levels on its DMX outputs, so treat Start like bringing up a fader on a
   Under `DRY_RUN=1` the output runs but nothing is sent. Quitting the tool while sending just stops
   the packets, and receivers time out after 2.5 s.
 - `POST /api/sacn/out/start`, `/stop`, `/levels`, `/clear`, `/release`, `/fixtures/add`,
-  `/fixtures/remove`, `/profiles/save`, `/profiles/delete`; `GET /api/sacn/out` is the whole state.
+  `/fixtures/remove`, `/fixtures/highlight`, `/profiles/save`, `/profiles/delete`; `GET /api/sacn/out` is the whole state.
 
 Sent to real nodes on 25 Nov 2026 (two LumiNode 4s, v2.9.1, ports on sACN U1-4): universe 1 at
 priority 100, all zeros, then channel 1 at 128 for ten seconds. Port 1 of both nodes went from

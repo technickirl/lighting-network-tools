@@ -449,3 +449,5 @@ span.grp-cell { cursor: default; }
 .so-folder { margin-top: 10px; }
 .so-profile-buttons { margin-top: 0; }
 .fx-patch { padding: 2px 8px; font-size: 11px; }
+.so-hl.active { background: #fde68a; border-color: #fde68a; color: #000; }
+.so-fx-foot { flex-wrap: wrap; } .so-fx-foot .btn { white-space: nowrap; padding-left: 8px; padding-right: 8px; }
