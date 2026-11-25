@@ -234,4 +234,6 @@ its node to the new address.
   IDs in `internal/nodeconfig/rdm_slots.go` are E1.20 table C-2 written from memory (0x0001 intensity, 0x0202 cyan,
   0x0203 yellow, 0x0204 magenta, 0x0205-0x0207 red, green, blue, ...): **check them against the standard or a real
   fixture before relying on them.** Only the fake node's fixtures have answered these so far; no real fixture has
-  been asked, and many do not support either request.
+  been asked, and many do not support either request. A slot of type 0x01 is the fine half of the primary
+  slot whose offset is in its label field; the controller pairs the two as one 16-bit channel only when the fine
+  slot comes straight after its primary (fakes only, 25 Nov 2026).

@@ -447,6 +447,8 @@ span.grp-cell { cursor: default; }
 .so-swatch { width: 16px; height: 16px; border-radius: 50%; border: 1px solid var(--border2); background: #000; flex: none; }
 .so-faders { display: flex; flex-direction: column; gap: 4px; }
 .so-ch { display: grid; grid-template-columns: 70px 1fr 30px; align-items: center; gap: 8px; font-size: 12px; }
+.so-ch.so-ch16 { grid-template-columns: 70px 1fr 46px; }
+.so-chip.so-chip-fine { opacity: .6; font-style: italic; }
 .so-ch span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; border-left: 3px solid var(--border2); padding-left: 6px; }
 .so-ch output, .so-val { font: 12px var(--mono); text-align: right; color: var(--text); min-width: 28px; }
 .so-ch input[type=range], #soRawLevel { width: 100%; accent-color: var(--accent); height: 22px; }

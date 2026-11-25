@@ -18,6 +18,23 @@ import (
 type rdmSlot struct {
 	Name string `json:"name"`
 	Type string `json:"type"`
+	// Default is the level the channel should sit at: half for pan and tilt, so a
+	// moving light patched from RDM starts centred.
+	Default int `json:"default"`
+	// Fine: the low half of a 16-bit pair with the channel before it.
+	Fine bool `json:"fine,omitempty"`
+}
+
+var fineWord = regexp.MustCompile(`(?i)fine|16.?bit lsb|\blsb\b`)
+
+// wordType guesses a channel type from a name, leaving the word "fine" out of it.
+func wordType(name string) string {
+	for _, w := range slotWords {
+		if w.re.MatchString(name) {
+			return w.t
+		}
+	}
+	return "other"
 }
 
 // slotLabels: E1.20 table C-2, slot label IDs of primary slots, as a name and
@@ -41,7 +58,6 @@ var slotWords = []struct {
 	re *regexp.Regexp
 	t  string
 }{
-	{regexp.MustCompile(`(?i)fine|16.?bit lsb|\blsb\b`), "other"},
 	{regexp.MustCompile(`(?i)dim|intens|master`), "dimmer"},
 	{regexp.MustCompile(`(?i)warm`), "warm"}, {regexp.MustCompile(`(?i)cool|cold`), "cool"},
 	{regexp.MustCompile(`(?i)\bred\b`), "red"}, {regexp.MustCompile(`(?i)green`), "green"}, {regexp.MustCompile(`(?i)blue`), "blue"},
@@ -77,24 +93,37 @@ func slotChannels(footprint int, slots []artnet.Slot, names map[int]string) []rd
 				what = "fine"
 			}
 			out[i], labelled[i] = rdmSlot{Name: out[of].Name + " " + what, Type: "other"}, true
+			// A fine slot straight after its primary is the low half of a 16-bit pair.
+			if s.Type == 0x01 && of == i-1 && !out[of].Fine {
+				out[i].Type, out[i].Fine = out[of].Type, true
+			}
 		}
 	}
-	for i, n := range names {
-		n = strings.TrimSpace(n)
-		if i >= footprint || n == "" {
+	for i := 0; i < footprint; i++ { // in order: a fine channel is judged by the one before it
+		n := strings.TrimSpace(names[i])
+		if n == "" {
 			continue
 		}
 		if len(n) > 40 {
 			n = n[:40]
 		}
 		out[i].Name = n
-		if !labelled[i] {
-			for _, w := range slotWords {
-				if w.re.MatchString(n) {
-					out[i].Type = w.t
-					break
-				}
+		if labelled[i] {
+			continue
+		}
+		t := wordType(n)
+		if fineWord.MatchString(n) {
+			// "Pan fine" after "Pan" is its low half; a fine channel anywhere else is left alone.
+			if i > 0 && t != "other" && out[i-1].Type == t && !out[i-1].Fine {
+				out[i].Type, out[i].Fine = t, true
 			}
+			continue
+		}
+		out[i].Type = t
+	}
+	for i := range out {
+		if !out[i].Fine && (out[i].Type == "pan" || out[i].Type == "tilt") {
+			out[i].Default = 128
 		}
 	}
 	return out
