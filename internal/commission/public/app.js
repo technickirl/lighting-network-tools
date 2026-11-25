@@ -17,7 +17,7 @@ const els = {
 };
 
 const viewEls = {
-  tabs: $('viewTabs'), configure: $('configureView'), address: $('addressView'), groups: $('groupsView'), fixtures: $('fixturesView'), sacn: $('sacnView'), sacnout: $('sacnOutView'),
+  tabs: $('viewTabs'), configure: $('configureView'), node: $('nodeView'), address: $('addressView'), groups: $('groupsView'), fixtures: $('fixturesView'), sacn: $('sacnView'), sacnout: $('sacnOutView'),
   list: $('configureList'), status: $('configScanStatus'), scan: $('btnScanConfigure'), log: $('configLog'),
 };
 
@@ -345,7 +345,7 @@ function canReach(ip) { return (state.interfaces || []).some(i => inSubnet(ip, i
 function inRunningJob(id) { const it = jobItem(id); return !!it && ['queued', 'checking', 'sending', 'rebooting'].includes(it.status); }
 function configureButton(id, ip, why, cls = '') {
   if (!state.configureUrl) return '';
-  const title = why || `Open ${ip} in its own tab`;
+  const title = why || `Open ${ip} on the Node tab`;
   return `<button class="btn btn-configure ${cls}" data-configure-id="${esc(id)}" data-configure-ip="${esc(ip)}" title="${esc(title)}" ${why ? 'disabled' : ''}>Configure</button>`;
 }
 function configureWhyNot(apiKind, id, ip) {
@@ -371,9 +371,7 @@ function historyConfigure(b, h) {
 function onConfigureClick(ev) {
   const b = ev.target.closest('[data-configure-ip]');
   if (!b || b.disabled) return;
-  // One tab per device: clicking again goes back to the same tab.
-  const q = new URLSearchParams({ ip: b.dataset.configureIp, id: b.dataset.configureId });
-  window.open(`${state.configureUrl}?${q}`, 'node-' + b.dataset.configureId);
+  openNode(b.dataset.configureIp, b.dataset.configureId); // node.js
 }
 
 // ─── Views ──────────────────────────────────────────────────────────────────
@@ -381,12 +379,15 @@ function onConfigureClick(ev) {
 // no Apply and no Factory reset, so a running system cannot be re-addressed from
 // it by a stray click. A reload stays on the same view; a new tab starts on Configure.
 let view = 'configure';
-try { const v = sessionStorage.getItem('commission.view'); view = ['address', 'groups', 'fixtures', 'sacn', 'sacnout'].includes(v) ? v : 'configure'; } catch {}
+try { const v = sessionStorage.getItem('commission.view'); view = ['node', 'address', 'groups', 'fixtures', 'sacn', 'sacnout'].includes(v) ? v : 'configure'; } catch {}
+function setView(v) { view = v; try { sessionStorage.setItem('commission.view', v); } catch {} }
 function currentView() { return state.configureUrl ? view : 'address'; }
 function renderView() {
   const v = currentView();
   viewEls.tabs.classList.toggle('hidden', !state.configureUrl);
   viewEls.configure.classList.toggle('hidden', v !== 'configure');
+  viewEls.node.classList.toggle('hidden', v !== 'node');
+  if (typeof renderNode === 'function') renderNode();
   viewEls.address.classList.toggle('hidden', v !== 'address');
   viewEls.groups.classList.toggle('hidden', v !== 'groups');
   viewEls.fixtures.classList.toggle('hidden', v !== 'fixtures');
@@ -400,8 +401,7 @@ function renderView() {
 viewEls.tabs.addEventListener('click', ev => {
   const t = ev.target.closest('.view-tab');
   if (!t) return;
-  view = t.dataset.view;
-  try { sessionStorage.setItem('commission.view', view); } catch {}
+  setView(t.dataset.view);
   render();
 });
 

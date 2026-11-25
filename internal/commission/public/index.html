@@ -21,6 +21,7 @@
     <!-- Only in a tool with a configure page; without one the address view is all there is. -->
     <div id="viewTabs" class="view-tabs hidden">
       <button class="view-tab" data-view="configure">Configure</button>
+      <button class="view-tab" data-view="node">Node</button>
       <button class="view-tab" data-view="address">Address &amp; reset</button>
       <button class="view-tab" data-view="groups">Groups</button>
       <button class="view-tab" data-view="fixtures">Fixtures</button>
@@ -39,8 +40,18 @@
           <input type="text" id="addIp" placeholder="192.168.12.8" autocomplete="off">
           <button class="btn" id="btnAdd" disabled title="Enter an address first">Add</button>
         </div>
-        <div id="configLog" class="log-line">› Open a node to edit DMX, IOs and process blocks.</div>
+        <div id="configLog" class="log-line">› Configure opens a node on the Node tab, to edit DMX, IOs and process blocks.</div>
       </div>
+    </section>
+
+    <!-- One node's configure page, loaded into #nodeHost the first time a node is opened (node.js). -->
+    <section id="nodeView" class="step-card hidden">
+      <div class="step-head">Node</div>
+      <div class="node-pick">
+        <div id="nodeChips" class="node-chips"></div>
+        <div id="nodeHint" class="log-line"></div>
+      </div>
+      <div id="nodeHost" class="nc hidden"></div>
     </section>
 
     <!-- GigaCore groups (VLANs): read them, name them, apply a profile. Only Read groups is free of writes. -->
@@ -305,6 +316,7 @@
 
 <script src="/combo.js"></script>
 <script src="/app.js"></script>
+<script src="/node.js"></script>
 <script src="/settings.js"></script>
 <script src="/groups.js"></script>
 <script src="/fixtures.js"></script>

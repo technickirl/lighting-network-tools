@@ -25,6 +25,7 @@ import (
 	"io"
 	"net"
 	"net/http"
+	"net/url"
 	"os"
 	"os/exec"
 	"runtime"
@@ -52,7 +53,10 @@ func openBrowser(url string) {
 
 const configurePath = "/configure/"
 
-// newMux puts the device list at / and the node configure page at /configure/.
+// newMux puts the device list at / and the node configure page's files under
+// /configure/: the device list's page loads them into its Node view. /configure/
+// itself was a page of its own before 1.9.0, so an old bookmark or open tab is
+// sent to the same node in the Node view.
 // The sACN view is a tab of the device list's page; its API is /api/sacn.
 func newMux(opts commission.Options) *http.ServeMux {
 	mux := http.NewServeMux()
@@ -63,6 +67,14 @@ func newMux(opts commission.Options) *http.ServeMux {
 	page := http.StripPrefix(configurePath, http.FileServer(http.FS(nodeconfig.Assets())))
 	mux.HandleFunc(configurePath, func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Cache-Control", "no-store")
+		if r.URL.Path == configurePath {
+			to := "/"
+			if ip := r.URL.Query().Get("ip"); ip != "" {
+				to += "#" + url.Values{"node": {ip}, "id": {r.URL.Query().Get("id")}}.Encode()
+			}
+			http.Redirect(w, r, to, http.StatusFound)
+			return
+		}
 		page.ServeHTTP(w, r)
 	})
 	return mux

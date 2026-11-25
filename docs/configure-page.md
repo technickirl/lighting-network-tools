@@ -2,6 +2,8 @@
 
 Notes on the per-node Configure page of Luminex Commission (`internal/nodeconfig`), including what real LumiNodes were seen to do.
 
+Since 1.9.0 it is not a page of its own: the device list's page loads `node.html`, `nodeconfig.css` and the two scripts from `/configure/` into its Node view (`internal/commission/public/node.js`) and calls `ncOpen(ip, id)` to show a node. So every rule in `nodeconfig.css` starts with `.nc`, and the scripts share one global scope with the device list's (`nc$` and `loadNode` are named that way because `$` and `load` are the device list's).
+
 Some entries name this tool's predecessors: the separate Reset tool, IP Setup and LumiNode Lite (and the older Node tools iptop2 and v28). Their code is now `internal/commission` and `internal/nodeconfig`, so what they did on real devices holds for Commission's device list and Configure page.
 
 ## Device calls
