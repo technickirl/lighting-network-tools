@@ -103,12 +103,9 @@ pre.txt { font-size: 10px; white-space: pre-wrap; word-break: break-all; color: 
 .node-row { display: grid; grid-template-columns: 12px 120px minmax(120px, 1fr) 140px auto; gap: 6px 10px; align-items: center; padding: 10px; background: var(--raised); border: 1px solid var(--border); border-radius: 4px; font-size: 13px; }
 .node-row .device-dot { justify-self: center; }
 .node-row .btn-configure { margin-left: 0; }
-/* The Node view: a chip per node, wrapping onto more rows, sized for a finger. */
+/* The Node view: a chip per node, wrapping onto more rows, sized for a finger. The chip itself is .uni-chip's, below. */
 .node-pick { padding: 12px 16px; }
 .node-chips { display: flex; flex-wrap: wrap; gap: 6px; }
-.node-chip { display: inline-flex; align-items: center; gap: 8px; min-height: 44px; padding: 0 14px; border-radius: 4px; border: 1px solid var(--border2); background: var(--raised); color: var(--text); font: 500 13px var(--mono); cursor: pointer; }
-.node-chip:hover:not(:disabled) { border-color: var(--muted); }
-.node-chip.active { border-color: var(--accent); background: rgba(249,115,22,.16); color: #fff; }
 .node-chip:disabled { opacity: .5; cursor: not-allowed; }
 .node-chip-dot { width: 8px; height: 8px; border-radius: 50%; flex: none; background: var(--ok); }
 .node-chip-dot.busy { background: var(--warn); } .node-chip-dot.down { background: var(--error); } .node-chip-dot.off { background: #555; }
@@ -117,9 +114,9 @@ pre.txt { font-size: 10px; white-space: pre-wrap; word-break: break-all; color: 
 /* Universe chips (sACN View and Control): the same chip, wrapping. In Control a chip
    has a tick box (sent or not) beside its name (show its fixtures). */
 .uni-chips { display: flex; flex-wrap: wrap; gap: 6px; }
-.uni-chip { display: inline-flex; align-items: center; gap: 8px; min-height: 44px; padding: 0 14px; border-radius: 4px; border: 1px solid var(--border2); background: var(--raised); color: var(--text); font: 500 13px var(--mono); cursor: pointer; }
-.uni-chip:hover { border-color: var(--muted); }
-.uni-chip.active { border-color: var(--accent); background: rgba(249,115,22,.16); color: #fff; }
+.uni-chip, .node-chip { display: inline-flex; align-items: center; gap: 8px; min-height: 44px; padding: 0 14px; border-radius: 4px; border: 1px solid var(--border2); background: var(--raised); color: var(--text); font: 500 13px var(--mono); cursor: pointer; }
+.uni-chip:hover, .node-chip:hover:not(:disabled) { border-color: var(--muted); }
+.uni-chip.active, .node-chip.active { border-color: var(--accent); background: rgba(249,115,22,.16); color: #fff; }
 .uni-chip small { font-size: 12px; color: var(--muted); }
 .uni-chip.has-tick { padding: 0; gap: 0; cursor: default; }
 .uni-chip.has-tick label { display: flex; align-items: center; min-height: 44px; padding: 0 4px 0 12px; cursor: pointer; }
