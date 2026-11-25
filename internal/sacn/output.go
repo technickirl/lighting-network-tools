@@ -23,6 +23,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/technickirl/lighting-network-tools/internal/luminex"
 )
@@ -36,6 +37,39 @@ type Channel struct {
 	Name    string `json:"name"`
 	Type    string `json:"type"`
 	Default int    `json:"default"` // the level it sits at until moved, 0-255
+	// Highlight is the level Highlight fades the channel to, 0-255, or -1 to leave
+	// it where it is. A profile saved without one gets its type's usual level.
+	Highlight *int `json:"highlight,omitempty"`
+}
+
+// HighlightFade is how long Highlight takes to fade in and out.
+var HighlightFade = 500 * time.Millisecond
+
+// defaultHighlights fills in the channels that have no highlight level: dimmer at
+// 50% and red, green and blue at full, so a fixture shows up white without
+// blinding anyone. A profile with no red, green or blue brings its whites up instead.
+func defaultHighlights(cs []Channel) {
+	rgb := false
+	for _, c := range cs {
+		rgb = rgb || c.Type == "red" || c.Type == "green" || c.Type == "blue"
+	}
+	for i := range cs {
+		if cs[i].Highlight != nil {
+			continue
+		}
+		v := -1
+		switch cs[i].Type {
+		case "dimmer":
+			v = 128
+		case "red", "green", "blue":
+			v = 255
+		case "white", "warm", "cool":
+			if !rgb {
+				v = 255
+			}
+		}
+		cs[i].Highlight = &v
+	}
 }
 
 // Profile is a kind of fixture: its channels in DMX order.
@@ -50,6 +84,7 @@ func chans(types ...string) []Channel {
 	for i, t := range types {
 		out[i] = Channel{Name: strings.ToUpper(t[:1]) + t[1:], Type: t}
 	}
+	defaultHighlights(out)
 	return out
 }
 
@@ -93,6 +128,12 @@ func (p *Profile) validate() error {
 			return fmt.Errorf("channel %d: the default level runs from 0 to 255", i+1)
 		}
 	}
+	defaultHighlights(p.Channels)
+	for i, c := range p.Channels {
+		if *c.Highlight < -1 || *c.Highlight > 255 {
+			return fmt.Errorf("channel %d: the highlight level runs from 0 to 255, or is left empty", i+1)
+		}
+	}
 	p.BuiltIn = false
 	return nil
 }
@@ -114,6 +155,11 @@ type output struct {
 	profiles []Profile // the operator's own
 	fixtures []Fixture
 	nextID   int
+	// Highlighted fixtures, by id: the levels their channels had before, to fade back to.
+	lit map[int]map[int]byte
+	// The fade a fixture is in, by id. A newer fade, Clear or Remove changes it and the old fade stops.
+	fading  map[int]int
+	fadeSeq int
 }
 
 var out = &output{sender: NewSender()}
@@ -236,6 +282,73 @@ func (o *output) footprint(f Fixture) int {
 	return 1
 }
 
+// highlight fades a fixture to its profile's highlight levels, or back to the
+// levels it had before. Call with mu held; the fade runs on after it returns.
+func (o *output) highlight(id int, on bool) error {
+	var f *Fixture
+	for i := range o.fixtures {
+		if o.fixtures[i].ID == id {
+			f = &o.fixtures[i]
+		}
+	}
+	if f == nil {
+		return fmt.Errorf("that fixture is no longer patched")
+	}
+	if o.lit == nil {
+		o.lit, o.fading = map[int]map[int]byte{}, map[int]int{}
+	}
+	now, _ := o.sender.Levels(uint16(f.Universe))
+	from, to := map[int]byte{}, map[int]byte{}
+	if on {
+		if o.lit[id] != nil {
+			return nil
+		}
+		if p := o.profile(f.Profile); p != nil {
+			for i, c := range p.Channels {
+				if a := f.Address + i; c.Highlight != nil && *c.Highlight >= 0 && a <= 512 {
+					from[a], to[a] = now[a-1], byte(*c.Highlight)
+				}
+			}
+		}
+		if len(to) == 0 {
+			return fmt.Errorf("the profile %q has no highlight levels: set them on Profiles", f.Profile)
+		}
+		o.lit[id] = from
+	} else {
+		to = o.lit[id]
+		if to == nil {
+			return nil
+		}
+		for a := range to {
+			from[a] = now[a-1]
+		}
+		delete(o.lit, id)
+	}
+	o.fadeSeq++
+	seq := o.fadeSeq
+	o.fading[id] = seq
+	go o.fade(id, seq, uint16(f.Universe), from, to)
+	return nil
+}
+
+func (o *output) fade(id, seq int, u uint16, from, to map[int]byte) {
+	const steps = 20
+	for s := 1; s <= steps; s++ {
+		time.Sleep(HighlightFade / steps)
+		o.mu.Lock()
+		if o.fading[id] != seq {
+			o.mu.Unlock()
+			return
+		}
+		set := map[int]byte{}
+		for a, t := range to {
+			set[a] = byte(int(from[a]) + (int(t)-int(from[a]))*s/steps)
+		}
+		_ = o.sender.Set(u, set)
+		o.mu.Unlock()
+	}
+}
+
 // clash names a patched fixture that shares a channel with the range, if any.
 func (o *output) clash(universe, address, footprint, exceptID int) string {
 	for _, f := range o.fixtures {
@@ -316,6 +429,8 @@ func (o *output) remove(ids []int) {
 			keep = append(keep, f)
 			continue
 		}
+		delete(o.lit, f.ID)
+		delete(o.fading, f.ID)
 		set := map[int]byte{}
 		for i := 0; i < o.footprint(f) && f.Address+i <= 512; i++ {
 			set[f.Address+i] = 0
@@ -344,6 +459,7 @@ func (o *output) releaseIfIdle(u int) {
 
 // clear puts every fixture at its defaults and every other channel at zero.
 func (o *output) clear() {
+	o.lit, o.fading = map[int]map[int]byte{}, map[int]int{} // highlights end here too
 	for _, u := range o.sender.Universes() {
 		set := map[int]byte{}
 		for a := 1; a <= 512; a++ {
@@ -362,8 +478,10 @@ func (o *output) clear() {
 
 type fixtureView struct {
 	Fixture
-	Channels []Channel `json:"channels"`
-	Problem  string    `json:"problem,omitempty"`
+	Channels     []Channel `json:"channels"`
+	Problem      string    `json:"problem,omitempty"`
+	Highlight    bool      `json:"highlight"`    // highlighted now
+	CanHighlight bool      `json:"canHighlight"` // its profile has highlight levels
 }
 
 type otherSource struct {
@@ -424,11 +542,14 @@ func (o *output) state() outState {
 	}
 	count := map[int]int{}
 	for _, f := range o.fixtures {
-		v := fixtureView{Fixture: f, Channels: []Channel{}}
+		v := fixtureView{Fixture: f, Channels: []Channel{}, Highlight: o.lit[f.ID] != nil}
 		if p := o.profile(f.Profile); p == nil {
 			v.Problem = fmt.Sprintf("The profile %q is gone. Remove this fixture, or save a profile with that name.", f.Profile)
 		} else {
 			v.Channels = p.Channels
+			for _, c := range p.Channels {
+				v.CanHighlight = v.CanHighlight || c.Highlight != nil && *c.Highlight >= 0
+			}
 			if f.Address+len(p.Channels)-1 > 512 {
 				v.Problem = "Runs past channel 512 with this profile."
 			} else if other := o.clash(f.Universe, f.Address, len(p.Channels), f.ID); other != "" {
@@ -585,6 +706,17 @@ func mountOutput(mux *http.ServeMux) {
 			return
 		}
 		do(w, func() error { o.remove(body.IDs); return nil })
+	})
+	mux.HandleFunc("POST /api/sacn/out/fixtures/highlight", func(w http.ResponseWriter, r *http.Request) {
+		var body struct {
+			ID int  `json:"id"`
+			On bool `json:"on"`
+		}
+		if err := readBody(r, &body); err != nil {
+			fail(w, err)
+			return
+		}
+		do(w, func() error { return o.highlight(body.ID, body.On) })
 	})
 	mux.HandleFunc("POST /api/sacn/out/profiles/save", func(w http.ResponseWriter, r *http.Request) {
 		var p Profile

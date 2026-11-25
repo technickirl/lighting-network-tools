@@ -253,8 +253,9 @@ func TestOutputRoutes(t *testing.T) {
 		{"/api/sacn/out/profiles/save", `{"name":"rgb","channels":[{"name":"R","type":"red"}]}`, 400, "built-in profile"},
 		{"/api/sacn/out/profiles/save", `{"name":"Mine","channels":[{"name":"R","type":"pink"}]}`, 400, "not a channel type"},
 		{"/api/sacn/out/profiles/save", `{"name":"Mine","channels":[]}`, 400, "1 to 512 channels"},
-		{"/api/sacn/out/profiles/save", `{"name":" Mine ","channels":[{"name":"","type":"dimmer","default":255},{"name":"<b>","type":"red"}]}`, 200, `"name":"Mine","channels":[{"name":"Ch 1","type":"dimmer","default":255}`},
+		{"/api/sacn/out/profiles/save", `{"name":" Mine ","channels":[{"name":"","type":"dimmer","default":255},{"name":"<b>","type":"red"}]}`, 200, `"name":"Mine","channels":[{"name":"Ch 1","type":"dimmer","default":255,"highlight":128}`},
 		{"/api/sacn/out/fixtures/add", `{"name":"A","profile":"Mine","universe":3,"address":511}`, 200, `"universe":3,"address":511`},
+		{"/api/sacn/out/profiles/save", `{"name":"Bad","channels":[{"name":"D","type":"dimmer","highlight":300}]}`, 400, "highlight level runs from 0 to 255"},
 		{"/api/sacn/out/profiles/delete", `{"name":"mine"}`, 400, "uses this profile"},
 		{"/api/sacn/out/levels", `{"universe":3,"set":[[512,256]]}`, 400, "levels run from 0 to 255"},
 		{"/api/sacn/out/levels", `{"universe":3,"set":[[0,1]]}`, 400, "addresses run from 1 to 512"},
@@ -276,6 +277,15 @@ func TestOutputRoutes(t *testing.T) {
 	}
 	if code, body := call("/api/sacn/out/stop", "{}"); code != 200 || !strings.Contains(body, `"running":false`) {
 		t.Errorf("stop: %d %s", code, body)
+	}
+	for _, s := range []struct{ body, want string }{
+		{`{"id":99,"on":true}`, "no longer patched"},
+		{`{"id":1,"on":true}`, `"highlight":true,"canHighlight":true`},
+		{`{"id":1,"on":false}`, `"highlight":false,"canHighlight":true`},
+	} {
+		if _, body := call("/api/sacn/out/fixtures/highlight", s.body); !strings.Contains(body, s.want) {
+			t.Errorf("highlight %s: want %q in\n%s", s.body, s.want, body)
+		}
 	}
 	// The settings last started with are offered again; the list of universes to listen to is kept.
 	var s settings
@@ -318,4 +328,66 @@ func TestLiveLoopback(t *testing.T) {
 		}
 	}
 	t.Fatalf("nothing heard on universe 63999 from %s: %s", iface, s.State().Error)
+}
+
+func TestHighlightFadesInAndBack(t *testing.T) {
+	old := HighlightFade
+	HighlightFade = 60 * time.Millisecond
+	defer func() { HighlightFade = old }()
+	o, _ := testOutput(t)
+	level := func(a int) byte { l, _ := o.sender.Levels(1); return l[a-1] }
+	leave := -1
+	o.mu.Lock()
+	o.load()
+	o.profiles = append(o.profiles, Profile{Name: "Plain", Channels: []Channel{{Name: "Ch 1", Type: "other", Highlight: &leave}}})
+	if err := o.add("Par 1", "Dimmer + RGBW", 1, 1, 2); err != nil {
+		t.Fatal(err)
+	}
+	if err := o.add("X", "Plain", 1, 100, 1); err != nil {
+		t.Fatal(err)
+	}
+	_ = o.sender.Set(1, map[int]byte{1: 10, 2: 40, 5: 99})
+	par, plain := o.fixtures[0].ID, o.fixtures[2].ID
+	if err := o.highlight(plain, true); err == nil || !strings.Contains(err.Error(), "no highlight levels") {
+		t.Errorf("a profile with no highlight levels: %v", err)
+	}
+	if err := o.highlight(par, true); err != nil {
+		t.Fatal(err)
+	}
+	if level(1) != 10 {
+		t.Error("the level jumped: it should fade")
+	}
+	o.mu.Unlock()
+
+	time.Sleep(25 * time.Millisecond)
+	if mid := level(1); mid <= 10 || mid >= 128 {
+		t.Errorf("part way through the fade the dimmer is at %d", mid)
+	}
+	time.Sleep(120 * time.Millisecond)
+	// Dimmer at 50%, red, green and blue at full, white where it was, the next fixture untouched.
+	if got := []byte{level(1), level(2), level(3), level(4), level(5), level(6)}; string(got) != string([]byte{128, 255, 255, 255, 99, 0}) {
+		t.Errorf("highlighted: %v", got)
+	}
+	if st := o.state(); !st.Fixtures[0].Highlight || st.Fixtures[1].Highlight || st.Fixtures[2].CanHighlight {
+		t.Errorf("state: %+v", st.Fixtures)
+	}
+
+	o.mu.Lock()
+	_ = o.highlight(par, true) // again: nothing new, and the levels to go back to are kept
+	_ = o.highlight(par, false)
+	o.mu.Unlock()
+	time.Sleep(150 * time.Millisecond)
+	if got := []byte{level(1), level(2), level(3), level(4), level(5)}; string(got) != string([]byte{10, 40, 0, 0, 99}) {
+		t.Errorf("after highlight: %v", got)
+	}
+
+	// Clear in the middle of a fade stops it and forgets the highlight.
+	o.mu.Lock()
+	_ = o.highlight(par, true)
+	o.clear()
+	o.mu.Unlock()
+	time.Sleep(150 * time.Millisecond)
+	if st := o.state(); level(1) != 0 || level(2) != 0 || st.Fixtures[0].Highlight {
+		t.Errorf("after Clear: %d %d %+v", level(1), level(2), st.Fixtures[0])
+	}
 }

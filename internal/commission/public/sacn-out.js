@@ -209,6 +209,7 @@ function soRenderTiles() {
       <div class="so-fx-foot">
         <button class="btn btn-small" data-act="off" ${f.channels.length ? '' : 'disabled title="No profile"'}>Off</button>
         <button class="btn btn-small" data-act="full" ${f.channels.length ? '' : 'disabled title="No profile"'}>Full</button>
+        <button class="btn btn-small so-hl${f.highlight ? ' active' : ''}" data-act="highlight" ${f.canHighlight ? `title="${f.highlight ? 'Fade back to the levels it had before' : 'Fade to its highlight levels over half a second, to find it on the rig. Click again to put it back'}"` : 'disabled title="Its profile has no highlight levels: set them on Profiles"'}>Highlight</button>
         <span class="spacer"></span>
         <button class="btn btn-small" data-act="more" title="${open ? 'Hide' : 'Show'} the other channels and Remove">${open ? 'Less ▴' : (rest.length ? `${rest.length} more ▾` : 'More ▾')}</button>
         ${open ? `<button class="btn btn-small btn-danger" data-act="remove" title="Take this fixture off the patch at once; its channels go to zero">Remove</button>` : ''}
@@ -268,6 +269,12 @@ soEls.tiles.addEventListener('click', async ev => {
     catch (e) { soEls.addNote.textContent = '› ' + e.message; }
     return;
   }
+  if (act === 'highlight') {
+    // The server does the fade; look more often while it runs so the faders follow.
+    try { soApply(await soPost('fixtures/highlight', { id, on: !f.highlight })); for (const ms of [150, 300, 450, 650]) setTimeout(soPoll, ms); }
+    catch (e) { soEls.addNote.textContent = '› ' + e.message; }
+    return;
+  }
   // Full and Off move the dimmer; a fixture without one moves its colours.
   let idx = f.channels.map((c, i) => i).filter(i => f.channels[i].type === 'dimmer');
   if (!idx.length) idx = f.channels.map((c, i) => i).filter(i => SO_INTENSITY.includes(f.channels[i].type));
@@ -297,7 +304,7 @@ async function sacnPatchFromRdm(f, universe) {
   if (!so) soApply(await fxCall('/api/sacn/out'));
   const profile = ([f.model, f.personalityName].filter(Boolean).join(' ') || `RDM fixture ${f.footprint} ch`).slice(0, 80);
   if (!so.profiles.some(p => p.name.toLowerCase() === profile.toLowerCase())) {
-    const channels = Array.from({ length: f.footprint }, (x, i) => ({ name: `Ch ${i + 1}`, type: 'other', default: 0 }));
+    const channels = Array.from({ length: f.footprint }, (x, i) => ({ name: `Ch ${i + 1}`, type: 'other', default: 0, highlight: -1 }));
     soApply(await soPost('profiles/save', { name: profile, channels }));
   }
   const name = (f.label || f.model || f.uid).slice(0, 60);
@@ -393,11 +400,12 @@ function soDrawEditor() {
   soEls.editor.innerHTML = `<div class="so-editor">
     <div class="so-form"><label>Profile name <input type="text" id="soDraftName" value="${esc(d.name)}" maxlength="80" autocomplete="off"></label>
       <span class="muted">${d.was ? `Editing “${esc(d.was)}”. A new name saves a copy.` : 'New profile.'} Channels are in DMX order.</span></div>
-    <table class="fx-table so-edit-table"><thead><tr><th>#</th><th>Name</th><th>Type</th><th>Default</th><th></th></tr></thead><tbody>` +
+    <table class="fx-table so-edit-table"><thead><tr><th>#</th><th>Name</th><th>Type</th><th>Default</th><th title="The level Highlight fades this channel to. Empty leaves the channel where it is.">Highlight</th><th></th></tr></thead><tbody>` +
     d.channels.map((c, i) => `<tr data-i="${i}"><td class="fx-num">${i + 1}</td>
       <td><input type="text" data-f="name" value="${esc(c.name)}" maxlength="40" autocomplete="off"></td>
       <td><select data-f="type">${so.types.map(t => `<option${t === c.type ? ' selected' : ''}>${esc(t)}</option>`).join('')}</select></td>
       <td><input type="text" inputmode="numeric" data-f="default" value="${c.default}" class="so-num" autocomplete="off"></td>
+      <td><input type="text" inputmode="numeric" data-f="highlight" value="${c.highlight >= 0 ? c.highlight : ''}" placeholder="—" class="so-num" autocomplete="off" title="0-255, or empty to leave this channel alone"></td>
       <td class="so-actions"><button class="btn btn-small" data-act="up" ${i ? '' : 'disabled title="Already first"'}>↑</button>
         <button class="btn btn-small" data-act="down" ${i < d.channels.length - 1 ? '' : 'disabled title="Already last"'}>↓</button>
         <button class="btn btn-small" data-act="drop" ${d.channels.length > 1 ? '' : 'disabled title="A profile needs a channel"'}>Remove</button></td></tr>`).join('') +
@@ -406,9 +414,11 @@ function soDrawEditor() {
       <button class="btn" data-act="cancel">Cancel</button><button class="btn btn-primary" data-act="save">Save profile</button></div></div>`;
 }
 
+function soTypeHighlight(t) { return t === 'dimmer' ? 128 : ['red', 'green', 'blue'].includes(t) ? 255 : -1; }
+
 function soEdit(p, copy) {
   soDraft = p ? { was: copy ? '' : p.name, name: copy ? p.name + ' copy' : p.name, channels: p.channels.map(c => ({ ...c })) }
-    : { was: '', name: '', channels: [{ name: 'Dimmer', type: 'dimmer', default: 0 }] };
+    : { was: '', name: '', channels: [{ name: 'Dimmer', type: 'dimmer', default: 0, highlight: 128 }] };
   soEls.profileNote.textContent = '';
   soDrawEditor();
 }
@@ -420,11 +430,17 @@ soEls.editor.addEventListener('input', ev => {
   if (!tr || !f) return;
   const c = soDraft.channels[Number(tr.dataset.i)];
   if (f === 'default') c.default = /^\d+$/.test(ev.target.value.trim()) ? Number(ev.target.value) : -1;
+  else if (f === 'highlight') { const v = ev.target.value.trim(); c.highlight = v === '' ? -1 : /^\d+$/.test(v) ? Number(v) : 999; }
   else {
     // Picking a type names a channel still called by its old type or its number.
     if (f === 'type' && (!c.name || /^Ch \d+$/.test(c.name) || c.name.toLowerCase() === c.type)) {
       c.name = ev.target.value[0].toUpperCase() + ev.target.value.slice(1);
       tr.querySelector('[data-f=name]').value = c.name;
+    }
+    if (f === 'type') {
+      // The usual highlight level for the new type: dimmer at 50%, red, green and blue at full.
+      c.highlight = soTypeHighlight(ev.target.value);
+      tr.querySelector('[data-f=highlight]').value = c.highlight >= 0 ? c.highlight : '';
     }
     c[f] = ev.target.value;
   }
@@ -433,7 +449,7 @@ soEls.editor.addEventListener('click', async ev => {
   const b = ev.target.closest('[data-act]');
   if (!b || b.disabled || !soDraft) return;
   const tr = b.closest('tr[data-i]'), i = tr ? Number(tr.dataset.i) : -1, ch = soDraft.channels, act = b.dataset.act;
-  if (act === 'addch') ch.push({ name: `Ch ${ch.length + 1}`, type: 'other', default: 0 });
+  if (act === 'addch') ch.push({ name: `Ch ${ch.length + 1}`, type: 'other', default: 0, highlight: -1 });
   else if (act === 'drop') ch.splice(i, 1);
   else if (act === 'up') [ch[i - 1], ch[i]] = [ch[i], ch[i - 1]];
   else if (act === 'down') [ch[i + 1], ch[i]] = [ch[i], ch[i + 1]];
