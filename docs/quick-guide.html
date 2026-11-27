@@ -23,7 +23,7 @@
 </head>
 <body>
 <h1>Luminex Commission – Quick User Guide</h1>
-<p class="byline">27 November 2026 · version 2.1.0 · Nick Malbon and Alex Mead</p>
+<p class="byline">27 November 2026 · version 2.1.1 · Nick Malbon and Alex Mead</p>
 
 <section>
 <h2>What it does</h2>
@@ -97,7 +97,7 @@
 <li><p><strong>Tap a tile</strong> to identify that fixture; <strong>double-tap</strong> for its fixture page (patch, hours, sensors and every setting it supports). <strong>ID OFF</strong> stops all identifies on the port.</p></li>
 <li><p><strong>Tap the address</strong> on a tile for the keypad: type, then <strong>SEND &amp; NEXT</strong> walks down the line. <em>Next = this +</em> sets the step (CH follows each fixture's footprint).</p></li>
 <li><p><strong>Edit</strong> or the fixture page sets address, label and personality. Every SET is read back, and clashes or a run past 512 show in red.</p></li>
-<li><p><strong>Tick tiles</strong> on one port to act on them together: ID ON / ID OFF, <strong>PERSONALITY…</strong> and <strong>SETTING…</strong> (one model only), <strong>READDRESS…</strong> and <strong>FACTORY RESET…</strong> (warning first). They run one fixture after another, and each tile shows how it went.</p></li>
+<li><p><strong>Tick tiles</strong> on one port to act on them together: ID ON / ID OFF, <strong>PERSONALITY…</strong> and <strong>SETTING…</strong> (one model only), <strong>READDRESS…</strong> and <strong>FACTORY RESET…</strong> (warning first). They run one fixture after another, and each tile shows how it went; <strong>STOP</strong> ends the run after the current fixture.</p></li>
 <li><p><strong>READDRESS…</strong> respaces the ticked fixtures in their current patch order, for example after a mode change. Choose a new mode for all of them (one model only; mixed models keep their own), <strong>from</strong> a start address and <strong>every</strong> N channels, or leave <em>every</em> empty to pack them by footprint. The line underneath shows every move (<code>1→1 · 11→21</code>) and warns about unticked fixtures the new patch would overlap; the button stays grey if the spacing is too small or the patch would run past 512.</p></li>
 <li><p><strong>Factory reset</strong> (fixture page or ticked tiles) shows a warning first. With <strong>KEEP ADDRESS</strong> on (the default) each fixture is reset and then put back on its own DMX address; the mode goes back to factory, so check the tiles for clashes and use READDRESS… if the footprint changed. If the address cannot be read first, nothing is sent.</p></li>
 <li><p>The <strong>Fixtures</strong> view reads every node with RDM on and lists all fixtures by address; <strong>Only fixtures with a problem</strong> filters to clashes and <strong>Export CSV</strong> saves the patch with UIDs.</p></li>
@@ -140,7 +140,7 @@
 <ul>
 <li><p><strong>Keep IP address on reset</strong> leaves each device on its current address. Without it a device returns to its factory default address, which differs between devices.</p></li>
 <li><p><strong>Keep LumiNode profiles</strong> keeps the nodes' stored profiles.</p></li>
-<li><p>A reset counts as done when the same device (matched by serial) reappears in mDNS. Expect 70 to 90 s.</p></li>
+<li><p>A reset counts as done when the same device (matched by serial) is seen to restart and reappears in mDNS. Expect 70 to 90 s. <em>Not sent</em>: it never reached the device.</p></li>
 <li><p>Afterwards devices have their default names, and nodes are on the factory profile <em>Output ArtNet 0-11</em>: no sACN until you recall an sACN profile.</p></li>
 </ul>
 </section>
@@ -162,6 +162,7 @@
 <tr><td>No devices found</td><td>Laptop on the wired port, with an address on the rig's network. A red banner means mDNS could not start at all.</td></tr>
 <tr><td>A device is missing</td><td>It may share the laptop's address (red note), or mDNS is blocked: use <strong>Add by address</strong>.</td></tr>
 <tr><td>Address change ends <em>Not seen afterwards</em></td><td>The change may have worked but mDNS can't see the device; Scan again or check it at the new address.</td></tr>
+<tr><td>A row or a Configure button says <em>Another device answered</em></td><td>The device at that address is not the one listed. Nothing was sent: <strong>Scan</strong> and try again.</td></tr>
 <tr><td>RDM tab shows only overheard fixtures</td><td>Another program holds UDP 6454; close it and reopen the tab.</td></tr>
 <tr><td>Fixtures overlap after a factory reset</td><td>The reset kept the addresses but put each fixture back on its factory mode, which can have a different footprint: tick them and use <strong>READDRESS…</strong> to set the mode and respace them in one go.</td></tr>
 <tr><td>RDM finds fewer fixtures than are on the line</td><td>Fixtures were booting when RDM went on: <strong>Rediscover</strong>.</td></tr>
