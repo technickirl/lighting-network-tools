@@ -113,7 +113,7 @@ func readSwitchGroups(d luminex.Device) SwitchGroups {
 	auth, needsPw, err := findAuth(d, nil)
 	switch {
 	case err != nil:
-		sg.Error = fmt.Sprintf("No answer from %s (%s).", d.IP, err)
+		sg.Error = noAnswerText(d, err)
 		return sg
 	case needsPw:
 		sg.Error = "This switch has a password set, which this page does not handle yet."

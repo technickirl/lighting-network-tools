@@ -10,9 +10,11 @@ import (
 	"io"
 	"net"
 	"net/http"
+	"net/http/httptrace"
 	"os"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 )
 
@@ -134,6 +136,22 @@ type Response struct {
 	ContentType string
 }
 
+// NoAnswer is Fetch's error when a device gave no answer. Sent is false when no connection was made (refused, no
+// route, timed out connecting), so the request cannot have reached the device and nothing was changed. When it is
+// true the device may have acted on the request before the connection was lost.
+type NoAnswer struct {
+	Reason string
+	Sent   bool
+}
+
+func (e *NoAnswer) Error() string { return e.Reason }
+
+// NotSent says whether err is a Fetch error for a request that never reached the device.
+func NotSent(err error) bool {
+	var n *NoAnswer
+	return errors.As(err, &n) && !n.Sent
+}
+
 // dialDevice is replaced only by tests, to reach a stand-in at a device's address.
 var dialDevice = (&net.Dialer{}).DialContext
 
@@ -186,12 +204,16 @@ func Fetch(c Call) (*Response, error) {
 		req.SetBasicAuth(c.Auth.Username, c.Auth.Password)
 	}
 
+	// Whether a connection was made tells a caller if the request can have reached the device at all.
+	var connected atomic.Bool
+	req = req.WithContext(httptrace.WithClientTrace(ctx, &httptrace.ClientTrace{GotConn: func(httptrace.GotConnInfo) { connected.Store(true) }}))
+
 	t0 := time.Now()
 	res, err := deviceClient.Do(req)
 	if err != nil {
 		msg := noAnswerReason(err, timeout)
 		Logf("✗ %s %s (%dms): %s", c.Method, c.URL, time.Since(t0).Milliseconds(), msg)
-		return nil, errors.New(msg)
+		return nil, &NoAnswer{Reason: msg, Sent: connected.Load()}
 	}
 	defer res.Body.Close()
 	// A device that sends its status and then cuts the reply short still answered:

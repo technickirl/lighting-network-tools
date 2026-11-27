@@ -158,7 +158,7 @@ func (r *SettingsRun) runOne(it *SettingsItem) {
 	r.set(it, "checking", "Checking it answers…")
 	auth, needsPw, err := findAuth(d, nil)
 	if err != nil {
-		r.set(it, "failed", fmt.Sprintf("No answer from %s (%s). Check cable and power.", d.IP, err))
+		r.set(it, "failed", noAnswerText(d, err))
 		return
 	}
 	if needsPw {

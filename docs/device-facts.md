@@ -125,6 +125,14 @@ its node to the new address.
   seen to go down, and "down" needs both signals in the same verify pass: the
   HTTP probe of the old address failed *and* the mDNS scan did not list it. One
   missed 2.5 s probe alone is not enough (a device mid-change can miss one).
+  A write that got no answer is not that evidence either (since 27 Nov 2026): if no connection was made the
+  request never left and the row fails with "Not sent"; if the connection was lost after sending, the device
+  still has to be seen to go down, on every device type.
+- Before a reset, IP change or setting, the device answering at the address is checked against the one picked
+  (27 Nov 2026): the serial in the probe's reply (`/api/deviceinfo`, `/api/device`), and for Gen1 the serial and
+  MAC in `/config/switchlegend`. A write is refused only when the reply names another serial and not the device's
+  MAC; a reply with neither goes ahead. Tests only so far: not yet seen against a real Gen1, where the serial
+  format in `switchlegend` has not been compared with the mDNS one.
 - Topology (who is plugged into what), read-only: LumiNode `GET /api/lldp/neighbor` → JSON array
   `{port, chassis_id (switch MAC), remote_port_id, mgmt_addresses[], system_description}`; GigaCore Gen1 (v3.1.5)
   `GET /config/lldp_neighbors` (Basic `admin:`) → text, neighbours split by `|`, fields by `?`:

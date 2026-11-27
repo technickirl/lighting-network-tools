@@ -42,6 +42,9 @@ IDENTIFY_DEVICE, each read back. Page API: `GET /api/node/{ip}/rdm`, `PUT /api/n
 Quick Setup order matters: detach a block's IOs, `DELETE` the block, `PUT`
 the new block, then assign input slot 0 and the DMX output. The device
 tracks IO usage globally and refuses to reuse an IO that is still attached.
+So the input is chosen before anything is cleared, and only from IOs no other
+block holds (the block's own count as free); otherwise a new IO is made. Taking
+another block's IO used to leave the port cleared with no input or output.
 
 ## Process and IOs pages
 

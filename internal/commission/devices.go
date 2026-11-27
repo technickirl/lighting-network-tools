@@ -21,6 +21,7 @@ package commission
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"github.com/technickirl/lighting-network-tools/internal/luminex"
 	"net"
@@ -177,7 +178,8 @@ func resetRequest(d luminex.Device, keepProfiles, keepIP bool) request {
 	}
 }
 
-// findAuth finds credentials the device accepts without changing anything.
+// findAuth finds credentials the device accepts without changing anything, and checks that the device answering at
+// the address is the one meant (errWrongDevice if not).
 func findAuth(d luminex.Device, userAuth *Auth) (*Auth, bool, error) {
 	def := kinds[d.APIKind]
 	candidates := def.defaultAuths
@@ -196,9 +198,67 @@ func findAuth(d luminex.Device, userAuth *Auth) (*Auth, bool, error) {
 		if r.Status == 401 || r.Status == 403 {
 			continue
 		}
+		if err := checkIdentity(d, r, a); err != nil {
+			return nil, false, err
+		}
 		return a, false, nil
 	}
 	return nil, true, nil
+}
+
+// errWrongDevice: the address answered, but as another device. Nothing may be written there.
+var errWrongDevice = errors.New("another device answered")
+
+// checkIdentity compares who answered at d's address with d. The list can be out of date, and two devices on one
+// address are only known to share it when a scan heard both, so a write to an address could reach a device the
+// operator did not pick. It refuses only on proof: the answer names a serial that is not d's, and does not name
+// d's MAC. An answer that names neither is let through, as no firmware is known to leave them out on purpose.
+//
+// LumiNode /api/deviceinfo and Gen2 /api/device carry the serial in the probe's own reply. Gen1's probe does not, so
+// its /config/switchlegend is read as well ("name,descr,id,serial,board_rev,board_ass,MAC", seen on v3.1.5).
+func checkIdentity(d luminex.Device, probe *luminex.Response, auth *Auth) error {
+	if d.Serial == "" {
+		return nil
+	}
+	var serial, mac string
+	switch d.APIKind {
+	case "gen1":
+		r, err := deviceFetch("GET", base(d.APIHost())+"/config/switchlegend", "", "", auth, 6*time.Second)
+		if err != nil || r.Status != 200 {
+			return nil
+		}
+		f := strings.Split(strings.TrimSpace(r.Text), ",")
+		if len(f) < 7 {
+			return nil
+		}
+		serial, mac = f[3], f[len(f)-1]
+	default:
+		var got struct {
+			Serial string `json:"serial"`
+			MAC    string `json:"mac_address"`
+		}
+		if probe.Status != 200 || json.Unmarshal([]byte(probe.Text), &got) != nil {
+			return nil
+		}
+		serial, mac = got.Serial, got.MAC
+	}
+	serial = strings.TrimSpace(serial)
+	if serial == "" || strings.EqualFold(serial, d.Serial) {
+		return nil
+	}
+	if d.MAC != "" && normMAC(mac) == normMAC(d.MAC) {
+		return nil
+	}
+	luminex.Warnf("[%s] %s answered as serial %s: refusing to write there", d.ID, d.IP, serial)
+	return fmt.Errorf("%w at %s (serial %s, not %s). Nothing was sent. Scan again", errWrongDevice, d.IP, serial, d.Serial)
+}
+
+// noAnswerText is what a row says when findAuth fails.
+func noAnswerText(d luminex.Device, err error) string {
+	if errors.Is(err, errWrongDevice) {
+		return strings.ToUpper(err.Error()[:1]) + err.Error()[1:] + "."
+	}
+	return fmt.Sprintf("No answer from %s (%s). Check cable and power.", d.IP, err)
 }
 
 type writeResult struct {
@@ -208,8 +268,9 @@ type writeResult struct {
 	Request string
 }
 
-// sendWrite performs a write request (IP change or reset). A dropped
-// connection counts as "probably accepted, rebooting", not failure.
+// sendWrite performs a write request (IP change or reset). A request that never reached the device (no connection)
+// has failed. One that was sent and then lost its connection is "dropped": the device may have acted on it and be
+// restarting, or not, so the caller has to see it go down before believing it.
 func sendWrite(d luminex.Device, pre *request, rq request, auth *Auth) writeResult {
 	if luminex.DryRun {
 		hdr := fmt.Sprintf(`{"Content-Type":%q`, rq.ContentType)
@@ -230,12 +291,18 @@ func sendWrite(d luminex.Device, pre *request, rq request, auth *Auth) writeResu
 	}
 	r, err := deviceFetch(rq.Method, rq.URL, rq.ContentType, rq.Body, auth, 8*time.Second)
 	if err != nil {
+		if luminex.NotSent(err) {
+			return writeResult{Outcome: "failed", Reason: "Not sent: " + err.Error() + ". Nothing was changed."}
+		}
 		return writeResult{Outcome: "dropped", Reason: err.Error()}
 	}
 	if d.APIKind == "gen1" && r.Status == 404 && strings.Contains(rq.URL, "/config/misc") {
 		alt := strings.Replace(rq.URL, "/config/misc", "/confg/misc", 1)
 		luminex.Warnf("Gen1 %s: /config/misc gave 404, trying %s", d.IP, alt)
 		if r, err = deviceFetch(rq.Method, alt, rq.ContentType, rq.Body, auth, 8*time.Second); err != nil {
+			if luminex.NotSent(err) {
+				return writeResult{Outcome: "failed", Reason: "Not sent: " + err.Error() + ". Nothing was changed."}
+			}
 			return writeResult{Outcome: "dropped", Reason: err.Error()}
 		}
 	}
