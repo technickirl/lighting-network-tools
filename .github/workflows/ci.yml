@@ -36,3 +36,17 @@ jobs:
           GOOS=windows GOARCH=amd64 go build -o /dev/null ./luminex-commission-go
           GOOS=linux GOARCH=arm GOARM=6 go build -o /dev/null ./luminex-commission-go
           GOOS=linux GOARCH=arm64       go build -o /dev/null ./luminex-commission-go
+
+  # The Mac app is the only cgo build (its menu bar icon), so it needs a Mac to compile.
+  mac-app:
+    name: mac app
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - name: vet (cgo)
+        run: go vet ./luminex-commission-go
+      - name: build the Mac app
+        run: ./luminex-commission-go/scripts/build-mac-app.sh

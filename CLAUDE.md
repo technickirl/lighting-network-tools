@@ -78,6 +78,19 @@ way: do not commit a real device's serial or MAC.
   tag is pushed (`.github/workflows/release.yml`). Each Mac one goes in a zip and each
   Raspberry Pi one (`-linux-armv6`, `-linux-arm64`) in a `.tar.gz`, because a browser
   drops the executable flag from a raw download.
+- **The Mac app** (`LuminexCommission-<version>-macos-app.zip`, holding `Luminex
+  Commission.app`) is the same program built with cgo, for a menu bar icon in place of
+  the Terminal window (`app_darwin.go`, `app_darwin.m`; everything else builds
+  `app_other.go`). cgo against Cocoa needs a Mac, so `scripts/build-mac-app.sh` runs
+  on a macOS runner in CI; every other binary stays `CGO_ENABLED=0`. The app's name
+  carries no version, so a Dock icon survives an update. Started from the bundle it
+  logs to `~/Library/Logs/LuminexCommission.log`, and macOS asks the user to allow it
+  on the local network before a scan can send. Icons are in
+  `luminex-commission-go/icon/` (`artwork.jpg` is the source).
+- **The Windows `.exe` gets its icon and version details** from a `.syso` that
+  `scripts/windows-icon.sh` makes before the build (go-winres at a fixed version, from
+  `icon/windows.png`). The `.syso` is not kept in git, so a plain `go build` for
+  Windows has no icon.
 - Mac binaries are ad-hoc signed, not notarised. Quarantine applies, so the first run
   needs `xattr -d com.apple.quarantine <file>` (run it before the first launch) or Open
   Anyway in Privacy & Security.

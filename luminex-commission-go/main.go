@@ -34,7 +34,7 @@ import (
 
 // version is the release this build belongs to. Builds from a v* tag set it
 // with -ldflags "-X main.version=<tag>"; a plain `go run .` shows this default.
-var version = "2.0.1"
+var version = "2.1.0"
 
 func openBrowser(url string) {
 	var cmd *exec.Cmd
@@ -162,6 +162,16 @@ func main() {
 		port = 3800
 	}
 
+	// Started as the Mac app there is no terminal: the log goes to a file and a
+	// menu bar icon stands in for the window (app_darwin.go).
+	app, logPath := inAppBundle(), ""
+	if app {
+		var err error
+		if logPath, err = logToFile(); err != nil {
+			luminex.Warnf("no log file: %v", err)
+		}
+	}
+
 	mux := newMux(commission.Options{})
 
 	var ln net.Listener
@@ -188,7 +198,11 @@ func main() {
 	fmt.Printf("  │  %-40s│\n", url)
 	fmt.Printf("  │  %-40s│\n", mode)
 	fmt.Println("  └──────────────────────────────────────────┘")
-	fmt.Println("  Keep this window open. Close it to quit.")
+	if app {
+		fmt.Println("  Quit from the menu bar icon.")
+	} else {
+		fmt.Println("  Keep this window open. Close it to quit.")
+	}
 	fmt.Println()
 	if !noOpen {
 		openBrowser(url)
@@ -202,8 +216,20 @@ func main() {
 		startLAN(lan, os.Stdout)
 	}
 	commission.Start()
-	if err := http.Serve(ln, luminex.LocalOnly(mux)); err != nil {
-		luminex.Errorf("server: %v", err)
-		os.Exit(1)
+	serve := func() {
+		if err := http.Serve(ln, luminex.LocalOnly(mux)); err != nil {
+			luminex.Errorf("server: %v", err)
+			os.Exit(1)
+		}
 	}
+	if app {
+		go serve()
+		title := "Luminex Commission " + version
+		if luminex.DryRun {
+			title += " (DRY RUN)"
+		}
+		runMenuBar(title, url, logPath) // holds the main thread until Quit
+		return
+	}
+	serve()
 }
