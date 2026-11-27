@@ -277,19 +277,29 @@ func (j *Job) runOne(it *Item, userAuth *Auth) {
 	j.ensureVerifier()
 }
 
+// retryWithPassword runs the items that are waiting for a password again. They are taken out of "needs_password"
+// under the lock, so two posts close together (a double Enter, or the laptop and an iPad) cannot both pick up the
+// same item and send its write twice. A cancelled job stays finished.
 func (j *Job) retryWithPassword(ids []string, auth *Auth) {
 	j.mu.Lock()
-	j.Done = false
+	if j.cancelled {
+		j.mu.Unlock()
+		return
+	}
 	var items []*Item
 	for _, it := range j.Items {
 		if it.Status == "needs_password" && contains(ids, it.ID) {
+			it.Status, it.Label, it.Detail = "queued", statusLabel["queued"], ""
 			items = append(items, it)
 		}
 	}
-	j.mu.Unlock()
-	for _, it := range items {
-		j.set(it, "queued", "")
+	if len(items) == 0 {
+		j.mu.Unlock()
+		return
 	}
+	j.Done = false
+	j.mu.Unlock()
+	j.notify()
 	j.runMany(items, auth)
 	j.checkDone()
 }

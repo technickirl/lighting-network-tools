@@ -315,3 +315,52 @@ func TestDroppedWriteDoesNotCountAsWentDown(t *testing.T) {
 		t.Errorf("down=%v status=%q, wanted rebooting and not yet down", down, status)
 	}
 }
+
+// Two password posts close together must not both run the same item: its write would go out twice.
+func TestPasswordRetryTakesEachItemOnce(t *testing.T) {
+	var mu sync.Mutex
+	writes := 0
+	f := newWire(t, func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != "GET" {
+			mu.Lock()
+			writes++
+			mu.Unlock()
+			time.Sleep(50 * time.Millisecond)
+		}
+		w.WriteHeader(204)
+	})
+	stubEvidence(t, true, func() ([]luminex.Device, error) { return nil, errors.New("no scan in this test") })
+	oldReach := reachability
+	reachability = func(string, int) luminex.Reach { return luminex.Reach{Reachable: true, Via: "test"} }
+	t.Cleanup(func() { reachability = oldReach })
+	it := &Item{ID: "x", Device: luminex.Device{ID: "x", IP: f.addr(), APIKind: "luminode"}}
+	j := newJob("reset", []*Item{it}, func() {}, &sync.Mutex{})
+	j.set(it, "needs_password", "")
+	var wg sync.WaitGroup
+	for i := 0; i < 2; i++ {
+		wg.Add(1)
+		go func() { defer wg.Done(); j.retryWithPassword([]string{"x"}, &Auth{Username: "admin", Password: "pw"}) }()
+	}
+	wg.Wait()
+	j.cancel()
+	mu.Lock()
+	defer mu.Unlock()
+	if writes != 1 {
+		t.Errorf("the reset went out %d times", writes)
+	}
+}
+
+func TestPasswordRetryLeavesACancelledJobFinished(t *testing.T) {
+	it := &Item{ID: "x", Device: realDevice("2.0.0.1")}
+	j := newJob("reset", []*Item{it}, func() {}, &sync.Mutex{})
+	j.set(it, "needs_password", "")
+	j.cancel()
+	j.mu.Lock()
+	it.Status = "needs_password" // a write answered 401 after the cancel
+	j.Done = true
+	j.mu.Unlock()
+	j.retryWithPassword([]string{"x"}, &Auth{Username: "admin"})
+	if s := j.snapshot(); !s.Done {
+		t.Error("a retry reopened a cancelled job, which nothing would ever finish")
+	}
+}

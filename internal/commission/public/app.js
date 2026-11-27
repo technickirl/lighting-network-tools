@@ -770,7 +770,7 @@ for (const b of [els.btnScan, viewEls.scan]) b.addEventListener('click', () => {
 
 async function sendPhase(items) {
   pwDismissed = new Set();
-  try { await post('/api/apply', { items: items.map(({ id, newIp }) => ({ id, newIp })), netmask, gateway: GATEWAY }); }
+  try { await post('/api/apply', { items: items.map(({ id, newIp }) => ({ id, newIp })), netmask, gateway: GATEWAY, ignoreClash: els.ignoreClash.checked }); }
   catch (e) { comboRun = null; applyRun = null; log('Could not start: ' + e.message); render(); }
 }
 
