@@ -788,7 +788,13 @@ func registerRDMRoutes(handle func(string, http.HandlerFunc)) {
 			return
 		}
 		// The node wants a JSON body, even an empty one: without it a LumiNode 12 (v2.9.1) answers 415.
-		if _, err := lumiDo("POST", ip, fmt.Sprintf("/api/dmx/ports/%d/force_discovery", port-1), obj{}); err != nil {
+		_, err := lumiDo("POST", ip, fmt.Sprintf("/api/dmx/ports/%d/force_discovery", port-1), obj{})
+		if noSuchPath(err) {
+			// Firmware v2.6.3 has this request at /api/dmx/<port>/force_discovery (its own /api/doc, 27 Nov 2026).
+			// The port number is taken to be 0-based there too, like its /api/rdm/<port>/connected_devices.
+			_, err = lumiDo("POST", ip, fmt.Sprintf("/api/dmx/%d/force_discovery", port-1), obj{})
+		}
+		if err != nil {
 			deviceFail(w, "RDM discovery "+ip, err)
 			return
 		}

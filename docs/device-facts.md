@@ -139,6 +139,15 @@ its node to the new address.
 - `/api/apply` checks addresses itself (27 Nov 2026), as the page does: two devices in one request on one address,
   an address a listed device holds (unless the page's "Ignore address clashes" is ticked, sent as `ignoreClash`),
   and the network or broadcast address of the mask being set are refused before anything is sent.
+- **LumiNode firmware v2.6.3** (a rig of LumiNode 4s and 12s, 27 Nov 2026; paths from a node's own `/api/doc`, reads only).
+  It has no `/api/dmx/ports`: the node answers 404 with a JSON body, and before 2.1.2 the Configure page took that for
+  "device unreachable" and went to ERROR three polls after opening a node. Now a 404 there means no live port state:
+  the page says so, and the poller stops asking that node. `deviceinfo`, `processblock`, `IO`, `ipsettings`, `profile`
+  and `system/uptime` all answered, and blocks and IOs read as on newer firmware (DMX IO ids were 0-3 on a LumiNode 4,
+  not 100000 upwards). Other paths differ from v2.9.1: RDM discovery is `POST /api/dmx/{port_number}/force_discovery`
+  (the tool falls back to it on a 404, taking the port as 0-based like `connected_devices`; not yet sent to a real
+  node) and the global DMX settings are `/api/dmx_config`. Recall is `POST /api/profile/{n}/recall` on both. No write
+  has been sent to a v2.6.3 node by this tool yet.
 - Topology (who is plugged into what), read-only: LumiNode `GET /api/lldp/neighbor` → JSON array
   `{port, chassis_id (switch MAC), remote_port_id, mgmt_addresses[], system_description}`; GigaCore Gen1 (v3.1.5)
   `GET /config/lldp_neighbors` (Basic `admin:`) → text, neighbours split by `|`, fields by `?`:

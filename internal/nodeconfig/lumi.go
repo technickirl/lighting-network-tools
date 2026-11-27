@@ -68,14 +68,28 @@ func lumiDo(method, ip, apiPath string, body any) (json.RawMessage, error) {
 	if res.Status < 200 || res.Status > 299 {
 		msg := strings.TrimSpace(res.Text)
 		if msg == "" {
-			return nil, fmt.Errorf("%d %s (%s)", res.Status, http.StatusText(res.Status), apiPath)
+			return nil, &statusError{res.Status, fmt.Sprintf("%d %s (%s)", res.Status, http.StatusText(res.Status), apiPath)}
 		}
-		return nil, fmt.Errorf("%d %s: %s", res.Status, http.StatusText(res.Status), truncate(msg, 200))
+		return nil, &statusError{res.Status, fmt.Sprintf("%d %s: %s", res.Status, http.StatusText(res.Status), truncate(msg, 200))}
 	}
 	if strings.TrimSpace(res.Text) == "" {
 		return nil, nil
 	}
 	return json.RawMessage(res.Text), nil
+}
+
+// statusError is a device's answer with a status that is not 2xx.
+type statusError struct {
+	Status int
+	msg    string
+}
+
+func (e *statusError) Error() string { return e.msg }
+
+// noSuchPath says whether err is the device answering 404: its firmware does not have that request.
+func noSuchPath(err error) bool {
+	var s *statusError
+	return errors.As(err, &s) && s.Status == http.StatusNotFound
 }
 
 func lumiGet(ip, apiPath string) (json.RawMessage, error) {

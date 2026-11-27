@@ -95,12 +95,24 @@ func fetchSnapshot(ip string) (obj, error) {
 		}(i, p)
 	}
 	wg.Wait()
+	// A LumiNode on firmware v2.6.3 has no /api/dmx/ports (seen 27 Nov 2026): everything else works, so the page
+	// is told there is no live port state instead of the node counting as unreachable.
+	noPorts := noSuchPath(errs[3])
+	if noPorts {
+		noLivePorts.Store(ip, true)
+		luminex.Logf("  %s has no /api/dmx/ports (older firmware): no live port state", ip)
+	} else if errs[3] == nil {
+		noLivePorts.Delete(ip)
+	}
 	for i, p := range paths {
-		if errs[i] != nil {
+		if errs[i] != nil && !(i == 3 && noPorts) {
 			luminex.Errorf("  ✗ %s: %v", p, errs[i])
 		}
 	}
 	snap := obj{"dryRun": luminex.DryRun}
+	if noPorts {
+		snap["noLivePorts"] = true
+	}
 	var uptime *float64
 	if errs[6] == nil && results[6] != nil {
 		var u float64
@@ -194,22 +206,36 @@ func fetchState(ip string) (pbs, ios []obj, err error) {
 func fetchLiveUpdate(ip string) (obj, error) {
 	var pbs, ios, ports []obj
 	var e1, e2 error
+	_, skipPorts := noLivePorts.Load(ip)
 	var wg sync.WaitGroup
-	wg.Add(2)
+	wg.Add(1)
 	go func() { defer wg.Done(); pbs, ios, e1 = fetchState(ip) }()
-	go func() { defer wg.Done(); ports, e2 = lumiObjects(ip, "/api/dmx/ports") }()
+	if !skipPorts {
+		wg.Add(1)
+		go func() { defer wg.Done(); ports, e2 = lumiObjects(ip, "/api/dmx/ports") }()
+	}
 	wg.Wait()
 	if e1 != nil {
 		return nil, e1
+	}
+	if noSuchPath(e2) {
+		noLivePorts.Store(ip, true)
+		skipPorts, e2 = true, nil
 	}
 	if e2 != nil {
 		return nil, e2
 	}
 	out := obj{}
 	addState(out, pbs, ios)
-	out["dmxPorts"] = normaliseDmxPorts(ports)
+	if !skipPorts {
+		out["dmxPorts"] = normaliseDmxPorts(ports)
+	}
 	return out, nil
 }
+
+// noLivePorts holds the nodes whose firmware answered 404 to /api/dmx/ports, so the poller stops asking. A
+// snapshot asks again, and clears the entry when the request works (after a firmware update, say).
+var noLivePorts sync.Map // ip → true
 
 // refreshedState re-reads blocks and IOs after a write, so the response
 // carries both resolved views (a block edit changes what its IOs are used
