@@ -49,11 +49,21 @@ function nodeLoadPage() {
 async function openNode(ip, id, show = true) {
   nodeOpen = { ip, id: id || '' };
   if (show) setView('node');
-  nodeSaveAddress();
   render();
+  // Keeping the node in the address is a convenience; a browser that refuses it must not stop the node opening.
+  try { nodeSaveAddress(); } catch (e) { reportPageError('Could not keep the node in the address: ' + e.message); }
   try { await nodeLoadPage(); }
-  catch (e) { nodePageError = `The node page did not load: ${e.message}. Reload this page.`; render(); return; }
+  catch (e) {
+    nodePage = null; // let the next tap try again: one failed load (a Wi-Fi blip) must not stop every later one
+    nodePageError = `The node page did not load: ${e.message}. Tap the node again.`;
+    reportPageError(nodePageError);
+    render();
+    return;
+  }
+  nodePageError = '';
+  if (typeof ncOpen !== 'function') { nodePageError = 'The node page loaded but its script did not run. Reload this page.'; reportPageError(nodePageError); render(); return; }
   if (nodeOpen && nodeOpen.ip === ip) ncOpen(ip, nodeOpen.id);
+  render();
 }
 
 // The open node is kept in the address (#node=<ip>&id=<device>), so a reload or
@@ -77,7 +87,7 @@ function nodeFromAddress() {
 window.addEventListener('nc-moved', ev => {
   if (!nodeOpen || nodeOpen.id !== ev.detail.id) return;
   nodeOpen.ip = ev.detail.ip;
-  nodeSaveAddress();
+  try { nodeSaveAddress(); } catch {}
   render();
 });
 

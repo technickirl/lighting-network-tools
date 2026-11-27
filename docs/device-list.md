@@ -93,6 +93,9 @@ go to the address), so connect them one at a time.
 | GigaCore Gen2 | `PUT /api/device/name "<name>"` (JSON string; `[a-zA-Z0-9 _-]`, max 64) | GigaCore WebApi 1.5.0 (used on a real 16tf) |
 | GigaCore Gen1 | `GET /config/switchlegend`, then `POST /config/switchlegend` `sw_name` (max 16) `sw_id` `sw_descr`, then `POST /config/icfg_conf_save save=1` | read off the Gen1 web UI; set five real switches on 5 Nov 2026 |
 
+`POST /api/client-log {message, agent}` writes a page's script error into the tool's log as `page error from
+<address>: …` (2.1.4): a page on an iPad has no console to read. The page also shows it under the device list.
+
 `POST /api/apply` takes `{items:[{id,newIp}], netmask, gateway}` and only
 addresses; it refuses a new address no device can take (0.x, loopback,
 multicast, broadcast, or one of this computer's own). The page sends the

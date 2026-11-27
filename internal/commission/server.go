@@ -15,6 +15,7 @@ import (
 	"net/http"
 	"os"
 	"sort"
+	"strings"
 	"sync"
 	"time"
 )
@@ -295,6 +296,45 @@ func writeJSON(w http.ResponseWriter, code int, v any) {
 	w.WriteHeader(code)
 	_ = json.NewEncoder(w).Encode(v)
 }
+
+// handleClientLog writes a page's script error into the tool's log. A page on an iPad has no console anyone can
+// read, so without this a script fault there shows only as a button that does nothing. The text comes from a
+// browser, so it is cut short, put on one line and limited to a few a minute.
+func handleClientLog(w http.ResponseWriter, r *http.Request) {
+	var body struct {
+		Message string `json:"message"`
+		Agent   string `json:"agent"`
+	}
+	if err := readJSON(r, &body); err != nil || strings.TrimSpace(body.Message) == "" {
+		writeJSON(w, 400, map[string]string{"error": "No message."})
+		return
+	}
+	clientLogMu.Lock()
+	now := time.Now()
+	if now.Sub(clientLogStart) > time.Minute {
+		clientLogStart, clientLogCount = now, 0
+	}
+	clientLogCount++
+	over := clientLogCount > 20
+	clientLogMu.Unlock()
+	if !over {
+		oneLine := func(s string, n int) string {
+			s = strings.Join(strings.Fields(s), " ")
+			if len(s) > n {
+				s = s[:n] + "…"
+			}
+			return s
+		}
+		luminex.Warnf("page error from %s: %s [%s]", r.RemoteAddr, oneLine(body.Message, 400), oneLine(body.Agent, 160))
+	}
+	writeJSON(w, 200, map[string]bool{"ok": true})
+}
+
+var (
+	clientLogMu    sync.Mutex
+	clientLogStart time.Time
+	clientLogCount int
+)
 
 func readJSON(r *http.Request, v any) error {
 	b, err := io.ReadAll(io.LimitReader(r.Body, 1<<20))
@@ -634,6 +674,7 @@ func Mount(mux *http.ServeMux, opts Options) {
 	mux.HandleFunc("GET /api/groups/profiles", handleProfilesList)
 	mux.HandleFunc("POST /api/groups/profiles/save", handleProfilesSave)
 	mux.HandleFunc("POST /api/groups/profiles/delete", handleProfilesDelete)
+	mux.HandleFunc("POST /api/client-log", handleClientLog)
 	mux.HandleFunc("POST /api/apply", handleApply)
 	mux.HandleFunc("POST /api/reset", handleReset)
 	mux.HandleFunc("POST /api/job/password", handlePassword)
