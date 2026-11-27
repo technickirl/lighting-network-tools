@@ -555,3 +555,65 @@ func TestHighlightAgainWhileFadingBack(t *testing.T) {
 		t.Errorf("%d fixtures still marked as fading back", left)
 	}
 }
+
+// Clear must never put a frame on the wire with a fixture's defaults at zero: a mover would twitch to pan 0.
+func TestClearNeverShowsDefaultsAtZero(t *testing.T) {
+	o, _ := testOutput(t)
+	o.mu.Lock()
+	o.load()
+	o.profiles = append(o.profiles, Profile{Name: "Mover", Channels: []Channel{{Name: "Pan", Type: "other", Default: 128}}})
+	if err := o.add("M", "Mover", 1, 1, 1); err != nil {
+		t.Fatal(err)
+	}
+	o.mu.Unlock()
+	stop, sawZero := make(chan struct{}), make(chan bool, 1)
+	go func() {
+		for {
+			select {
+			case <-stop:
+				sawZero <- false
+				return
+			default:
+				if l, ok := o.sender.Levels(1); ok && l[0] == 0 {
+					sawZero <- true
+					return
+				}
+			}
+		}
+	}()
+	for i := 0; i < 2000; i++ {
+		o.mu.Lock()
+		o.clear()
+		o.mu.Unlock()
+	}
+	close(stop)
+	if <-sawZero {
+		t.Error("pan was at 0 part way through a Clear")
+	}
+}
+
+// Start and Stop pressed together (two pages) must leave the sender either running and sending, or stopped.
+func TestStartAndStopTogether(t *testing.T) {
+	o, c := testOutput(t)
+	s := o.sender
+	_ = s.Set(1, map[int]byte{1: 255})
+	var wg sync.WaitGroup
+	for i := 0; i < 40; i++ {
+		wg.Add(2)
+		go func() { defer wg.Done(); _ = s.Start("test0", 100, "") }()
+		go func() { defer wg.Done(); s.Stop() }()
+	}
+	wg.Wait()
+	s.Stop()
+	if s.State().Running {
+		t.Fatal("still running after Stop")
+	}
+	before := len(c.data())
+	if err := s.Start("test0", 100, ""); err != nil {
+		t.Fatal(err)
+	}
+	time.Sleep(120 * time.Millisecond)
+	if !s.State().Running || len(c.data()) == before {
+		t.Errorf("running %v, %d packets since Start", s.State().Running, len(c.data())-before)
+	}
+}

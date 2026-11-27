@@ -315,6 +315,10 @@ func guardWrites(pattern string, h http.HandlerFunc) http.HandlerFunc {
 				return
 			}
 		}
+		if why := wrongNode(ip); why != "" {
+			writeJSON(w, http.StatusConflict, obj{"ok": false, "error": why})
+			return
+		}
 		h(w, r)
 	}
 }
@@ -582,10 +586,19 @@ func registerRoutes(mux *http.ServeMux) {
 		if colors == nil {
 			colors = []any{}
 		}
+		// A name the request leaves out stays as the node has it. So does "—": the page shows that for a name
+		// the node has empty, and it used to come back here and be written to the node as its name.
+		name := func(key string) string {
+			if v, sent := in[key].(string); sent && v != "—" {
+				return v
+			}
+			v, _ := cur[key].(string)
+			return v
+		}
 		body := obj{
 			"ID":         numOr(cur, "ID", 0),
-			"long_name":  str(in, "long_name", ""),
-			"short_name": str(in, "short_name", ""),
+			"long_name":  name("long_name"),
+			"short_name": name("short_name"),
 			"colors":     colors,
 		}
 		if _, err := lumiDo("PUT", ip, "/api/deviceinfo", body); err != nil {

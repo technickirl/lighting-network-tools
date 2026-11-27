@@ -361,3 +361,16 @@ func TestApplyRefusesAddressClashes(t *testing.T) {
 		t.Error(msg)
 	}
 }
+
+func TestSerialAtKnowsOnlyAnUnsharedAddress(t *testing.T) {
+	startFlow(t)
+	state.mu.Lock()
+	state.devices = []luminex.Device{{ID: "A", Serial: "A", IP: "192.168.1.10"}, {ID: "B", Serial: "B", IP: "192.168.1.20"}, {ID: "C", Serial: "C", IP: "192.168.1.20"}}
+	state.mu.Unlock()
+	if got := SerialAt("192.168.1.10"); got != "A" {
+		t.Errorf("one device at the address: %q", got)
+	}
+	if got := SerialAt("192.168.1.20") + SerialAt("192.168.1.99"); got != "" {
+		t.Errorf("a shared or unknown address has no one serial: %q", got)
+	}
+}

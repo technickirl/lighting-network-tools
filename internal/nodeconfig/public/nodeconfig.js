@@ -435,13 +435,16 @@ function renderNetwork(d) {
     </div>`;
 }
 
+function realName(n) { return !n || n === '—' ? '' : n; }
+
 function openNetEdit() {
   if (!currentIp) { toast('No device connected', true); return; }
   const d = window._netCurrent || {};
   const dev = window._devCurrent || {};
 
-  nc$('net-long-name').value  = dev.longName  || '';
-  nc$('net-short-name').value = dev.shortName || '';
+  // "—" is how an empty name is shown; it is not the name, so it must not go into the box (and back to the node).
+  nc$('net-long-name').value  = realName(dev.longName);
+  nc$('net-short-name').value = realName(dev.shortName);
   nc$('net-ip').value         = d.ip      || '';
   nc$('net-mask').value       = d.mask    || '';
   nc$('net-gateway').value    = d.gateway || '0.0.0.0';
@@ -984,7 +987,7 @@ nc$('net-save').onclick = async () => {
   try {
     // Apply device name first (non-disruptive)
     const dev = window._devCurrent || {};
-    if (longName !== dev.longName || shortName !== dev.shortName) {
+    if (longName !== realName(dev.longName) || shortName !== realName(dev.shortName)) {
       await call(`/api/node/${currentIp}/devicename`, 'PUT', {
         long_name:  longName,
         short_name: shortName,

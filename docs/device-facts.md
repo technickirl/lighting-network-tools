@@ -133,6 +133,9 @@ its node to the new address.
   MAC in `/config/switchlegend`. A write is refused only when the reply names another serial and not the device's
   MAC; a reply with neither goes ahead. Tests only so far: not yet seen against a real Gen1, where the serial
   format in `switchlegend` has not been compared with the mDNS one.
+  The check is skipped while `DEVICE_PORT` is set: `fake-device.js` is one server that answers for every fake of a
+  kind with the first one's serial. The Configure page's writes get the same check against the serial the device
+  list holds for the address (`commission.SerialAt`), when exactly one listed device is there.
 - `/api/apply` checks addresses itself (27 Nov 2026), as the page does: two devices in one request on one address,
   an address a listed device holds (unless the page's "Ignore address clashes" is ticked, sent as `ignoreClash`),
   and the network or broadcast address of the mask being set are refused before anything is sent.

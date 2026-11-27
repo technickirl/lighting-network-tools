@@ -217,7 +217,8 @@ var errWrongDevice = errors.New("another device answered")
 // LumiNode /api/deviceinfo and Gen2 /api/device carry the serial in the probe's own reply. Gen1's probe does not, so
 // its /config/switchlegend is read as well ("name,descr,id,serial,board_rev,board_ass,MAC", seen on v3.1.5).
 func checkIdentity(d luminex.Device, probe *luminex.Response, auth *Auth) error {
-	if d.Serial == "" {
+	// The test fakes (DEVICE_PORT) are one server answering for every fake of a kind, so they cannot be told apart.
+	if d.Serial == "" || !checkShared() {
 		return nil
 	}
 	var serial, mac string

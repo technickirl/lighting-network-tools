@@ -369,19 +369,24 @@ func (o *output) allProfiles() []Profile {
 	return all
 }
 
-// defaults puts a fixture's channels at their profile's default levels.
-func (o *output) defaults(f Fixture) {
-	p := o.profile(f.Profile)
-	if p == nil {
-		return
-	}
+// defaultLevels is a fixture's channels at their profile's default levels, by address.
+func (o *output) defaultLevels(f Fixture) map[int]byte {
 	set := map[int]byte{}
-	for i, c := range p.Channels {
-		if f.Address+i <= 512 {
-			set[f.Address+i] = byte(c.Default)
+	if p := o.profile(f.Profile); p != nil {
+		for i, c := range p.Channels {
+			if f.Address+i <= 512 {
+				set[f.Address+i] = byte(c.Default)
+			}
 		}
 	}
-	_ = o.sender.Set(uint16(f.Universe), set)
+	return set
+}
+
+// defaults puts a fixture's channels at their profile's default levels.
+func (o *output) defaults(f Fixture) {
+	if set := o.defaultLevels(f); len(set) > 0 {
+		_ = o.sender.Set(uint16(f.Universe), set)
+	}
 }
 
 func (o *output) footprint(f Fixture) int {
@@ -590,15 +595,29 @@ func (o *output) releaseIfIdle(u int) {
 // clear puts every fixture at its defaults and every other channel at zero.
 func (o *output) clear() {
 	o.lit, o.fading, o.restoring = map[int]map[int]byte{}, map[int]int{}, map[int]map[int]byte{} // highlights end here too
+	// Each universe gets its whole new look in one Set, so no frame goes out with a fixture's defaults (a mover's
+	// pan and tilt at half, say) still at zero.
+	looks := map[uint16]map[int]byte{}
 	for _, u := range o.sender.Universes() {
 		set := map[int]byte{}
 		for a := 1; a <= 512; a++ {
 			set[a] = 0
 		}
-		_ = o.sender.Set(u, set)
+		looks[u] = set
 	}
 	for _, f := range o.fixtures {
-		o.defaults(f)
+		u := uint16(f.Universe)
+		if looks[u] == nil {
+			looks[u] = map[int]byte{}
+		}
+		for a, v := range o.defaultLevels(f) {
+			looks[u][a] = v
+		}
+	}
+	for u, set := range looks {
+		if len(set) > 0 {
+			_ = o.sender.Set(u, set)
+		}
 	}
 	for _, u := range o.sender.Universes() {
 		o.releaseIfIdle(int(u))

@@ -599,3 +599,46 @@ func TestOnlyIPv4AddressesAndNumbersReachADevice(t *testing.T) {
 		}
 	}
 }
+
+// An empty long name is shown as "—". Saving a new short name must not write that dash to the node.
+func TestDeviceNameKeepsAnEmptyLongName(t *testing.T) {
+	var put string
+	node := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == "PUT" {
+			b, _ := io.ReadAll(r.Body)
+			put = string(b)
+			return
+		}
+		w.Write([]byte(`{"ID":3,"short_name":"old","long_name":"","colors":[],"serial":"LUM111"}`))
+	}))
+	defer node.Close()
+	luminex.SetDeviceDialForTests(func(ctx context.Context, network, addr string) (net.Conn, error) {
+		return (&net.Dialer{}).DialContext(ctx, network, strings.TrimPrefix(node.URL, "http://"))
+	})
+	defer luminex.SetDeviceDialForTests((&net.Dialer{}).DialContext)
+	srv := mounted(t)
+	send := func(body string) int {
+		req, _ := http.NewRequest("PUT", srv.URL+"/api/node/192.168.200.3/devicename", strings.NewReader(body))
+		res, err := http.DefaultClient.Do(req)
+		if err != nil {
+			t.Fatal(err)
+		}
+		res.Body.Close()
+		return res.StatusCode
+	}
+	if code := send(`{"short_name":"new","long_name":"—"}`); code != 200 || !strings.Contains(put, `"long_name":""`) || !strings.Contains(put, `"short_name":"new"`) {
+		t.Errorf("%d, the node was sent %s", code, put)
+	}
+
+	// The tool lists another serial at this address: the write is refused and nothing is sent.
+	put = ""
+	options.Serial = func(string) string { return "LUM999" }
+	defer func() { options.Serial = nil }()
+	if code := send(`{"short_name":"x"}`); code != 409 || put != "" {
+		t.Errorf("a write to another node's address: %d, sent %q", code, put)
+	}
+	options.Serial = func(string) string { return "lum111" }
+	if code := send(`{"short_name":"x"}`); code != 200 || put == "" {
+		t.Errorf("a write to the right node: %d, sent %q", code, put)
+	}
+}

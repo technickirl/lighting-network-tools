@@ -33,6 +33,9 @@ const (
 
 // Sender is the one sACN source of this process.
 type Sender struct {
+	// life is held for the whole of a Start or a Stop, so the two cannot overlap: Stop lets go of mu while the
+	// send loop winds down, and a Start in that gap used to have its new socket closed by the Stop.
+	life     sync.Mutex
 	mu       sync.Mutex
 	cid      CID
 	name     string
@@ -256,6 +259,8 @@ func OutputInterfaces() []OutputInterface {
 // Start begins sending from the named interface. The name and priority stay
 // until the next Start.
 func (s *Sender) Start(iface string, priority int, name string) error {
+	s.life.Lock()
+	defer s.life.Unlock()
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	if s.running {
@@ -330,21 +335,24 @@ func (s *Sender) run(stop, done chan struct{}) {
 
 // Stop ends the output, telling receivers so. The levels are kept.
 func (s *Sender) Stop() {
+	s.life.Lock()
+	defer s.life.Unlock()
 	s.mu.Lock()
 	if !s.running {
 		s.mu.Unlock()
 		return
 	}
-	s.running = false
 	close(s.stop)
 	done := s.done
 	s.mu.Unlock()
 	<-done
+	// Still "running" until the universes are told: a Release in between then terminates its own universe.
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	for _, u := range s.sending() {
 		s.terminate(u)
 	}
+	s.running = false
 	if s.conn != nil {
 		_ = s.conn.Close()
 		s.conn, s.write = nil, nil

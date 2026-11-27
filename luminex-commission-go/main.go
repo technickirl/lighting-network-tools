@@ -64,7 +64,7 @@ func newMux(opts commission.Options) *http.ServeMux {
 	mux := http.NewServeMux()
 	opts.Version, opts.Title, opts.ConfigureURL = version, "Luminex Commission", configurePath
 	commission.Mount(mux, opts)
-	nodeconfig.Mount(mux, nodeconfig.Options{Locked: commission.Locked, Version: version})
+	nodeconfig.Mount(mux, nodeconfig.Options{Locked: commission.Locked, Serial: commission.SerialAt, Version: version})
 	sacn.Mount(mux)
 	page := http.StripPrefix(configurePath, http.FileServer(http.FS(nodeconfig.Assets())))
 	mux.HandleFunc(configurePath, func(w http.ResponseWriter, r *http.Request) {
