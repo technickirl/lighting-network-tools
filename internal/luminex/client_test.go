@@ -267,3 +267,27 @@ func TestLinkLocalFromMAC(t *testing.T) {
 		}
 	}
 }
+
+// A reset that never left this computer must not be mistaken for one the device accepted and then went quiet on.
+func TestNoAnswerSaysWhetherTheRequestWasSent(t *testing.T) {
+	closed := httptest.NewServer(http.NotFoundHandler())
+	url := closed.URL
+	closed.Close()
+	if _, err := Fetch(Call{Method: "POST", URL: url + "/api/reset", Body: "{}"}); !NotSent(err) {
+		t.Errorf("refused connection: NotSent = false (%v)", err)
+	}
+
+	drop := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if c, _, err := w.(http.Hijacker).Hijack(); err == nil {
+			c.Close()
+		}
+	}))
+	defer drop.Close()
+	_, err := Fetch(Call{Method: "POST", URL: drop.URL + "/api/reset", Body: "{}"})
+	if err == nil || NotSent(err) {
+		t.Errorf("connection dropped after the request: err = %v, NotSent = %v", err, NotSent(err))
+	}
+	if NotSent(nil) || NotSent(ErrDryRun) {
+		t.Error("NotSent is only for a Fetch that got no answer")
+	}
+}

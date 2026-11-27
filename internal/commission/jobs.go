@@ -223,7 +223,7 @@ func (j *Job) runOne(it *Item, userAuth *Auth) {
 		return
 	}
 	if err != nil {
-		j.set(it, "failed", fmt.Sprintf("No answer from %s (%s). Check cable and power.", d.IP, err))
+		j.set(it, "failed", noAnswerText(d, err))
 		return
 	}
 	if needsPw {
@@ -262,10 +262,12 @@ func (j *Job) runOne(it *Item, userAuth *Auth) {
 		j.set(it, "failed", r.Reason)
 		return
 	case "dropped":
+		// Sent, but no answer. The device may be restarting or may never have acted on it, so this is not yet
+		// "went down": the verifier has to see it stop answering and leave mDNS, like any other device.
 		j.mu.Lock()
-		it.SentAt, it.wentDown = nowMs(), true
+		it.SentAt = nowMs()
 		j.mu.Unlock()
-		j.set(it, "rebooting", fmt.Sprintf("Connection dropped after sending (%s), probably accepted. Waiting for it…", r.Reason))
+		j.set(it, "rebooting", fmt.Sprintf("No answer after sending (%s). Watching whether it restarts…", r.Reason))
 	case "sent":
 		j.mu.Lock()
 		it.SentAt = nowMs()
@@ -432,6 +434,8 @@ func (j *Job) verifyPass() {
 			mins := int(j.verifyTimeout().Minutes())
 			if s := findSame(seen, it.Device); s != nil && j.Kind == "apply" && s.IP == it.TargetIP {
 				j.set(it, "not_seen", fmt.Sprintf("At %s but still /%d, not /%d, after %d min. Power-cycle and Scan.", s.IP, s.Prefix, maskToCIDR(j.Netmask), mins))
+			} else if s != nil && j.Kind == "reset" {
+				j.set(it, "not_seen", fmt.Sprintf("Still at %s and never seen to restart in %d min: the reset probably did not happen. Scan and try again.", s.IP, mins))
 			} else if s != nil {
 				j.set(it, "not_seen", fmt.Sprintf("Still on old address %s after %d min. Power-cycle and Scan.", s.IP, mins))
 			} else {

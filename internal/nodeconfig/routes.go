@@ -1176,9 +1176,10 @@ func handleQuickSetup(w http.ResponseWriter, r *http.Request) {
 	}
 
 	errs := []string{}
+	held := attachedIOs(pbList) // kept up to date as each port is rebuilt
 	for _, p := range in.Ports {
 		pbIdx := p.Port - 1 // process blocks and physical ports are 0-based
-		if err := quickSetupPort(ip, pbIdx, p.Port, p.Universe, &ios, pbList); err != nil {
+		if err := quickSetupPort(ip, pbIdx, p.Port, p.Universe, &ios, pbList, held); err != nil {
 			luminex.Errorf("  port %d: %v", p.Port, err)
 			errs = append(errs, fmt.Sprintf("Port %d: %v", p.Port, err))
 		}
@@ -1213,7 +1214,10 @@ func findIO(list []obj, id int) obj {
 	return nil
 }
 
-func quickSetupPort(ip string, pbIdx, port, universe int, ios *[]obj, pbList []obj) error {
+// held is every IO a block has attached. The node refuses an IO another block holds, and by then this port's block
+// has been cleared, which would leave the port with no input and no output. So the input is an IO no other block
+// holds (the block's own inputs count as free, as they are about to come off it), or a new one.
+func quickSetupPort(ip string, pbIdx, port, universe int, ios *[]obj, pbList []obj, held map[int]bool) error {
 	// Current protocol = class of the block's first input IO, else sACN.
 	protocol := "sacn"
 	pb := findPB(pbList, pbIdx)
@@ -1238,9 +1242,25 @@ func quickSetupPort(ip string, pbIdx, port, universe int, ios *[]obj, pbList []o
 	}
 	luminex.Logf("  port %d: DMX IO id=%d", port, dmxID)
 
-	inputID, err := findOrCreateInput(ip, protocol, universe, ios)
+	own := map[int]bool{}
+	if pb != nil {
+		for _, id := range mapValues(pb["inputs"]) {
+			own[id] = true
+		}
+	}
+	free := make([]obj, 0, len(*ios))
+	for _, io := range *ios {
+		if id := numOr(io, "id", -1); own[id] || !held[id] {
+			free = append(free, io)
+		}
+	}
+	known := len(free)
+	inputID, err := findOrCreateInput(ip, protocol, universe, &free)
 	if err != nil {
 		return err
+	}
+	if len(free) > known {
+		*ios = append(*ios, free[known:]...) // a new IO: later ports can see it
 	}
 
 	// 1. Detach the block's current IOs (inputs keyed by slot, outputs by IO id).
@@ -1260,6 +1280,9 @@ func quickSetupPort(ip string, pbIdx, port, universe int, ios *[]obj, pbList []o
 	if _, err := lumiDo("DELETE", ip, fmt.Sprintf("/api/processblock/%d", pbIdx), nil); err != nil {
 		return err
 	}
+	for id := range own {
+		delete(held, id)
+	}
 	block := obj{
 		"name": fmt.Sprintf("Port %d U%d", port, universe), "mode": "REROUTE",
 		"ratelimiting": true, "timeout": 0, "backup_auto_recover": true, "masterlimit": "NONE",
@@ -1271,8 +1294,9 @@ func quickSetupPort(ip string, pbIdx, port, universe int, ios *[]obj, pbList []o
 	}
 	// 3. Assign the new IOs.
 	if _, err := lumiDo("PUT", ip, fmt.Sprintf("/api/processblock/%d/input/0", pbIdx), obj{"io_id": inputID}); err != nil {
-		return err
+		return fmt.Errorf("block cleared, but its input was refused, so the port has no input now: %w", err)
 	}
+	held[inputID] = true
 	if _, err := lumiDo("PUT", ip, fmt.Sprintf("/api/processblock/%d/output", pbIdx), obj{"io_id": dmxID}); err != nil {
 		return err
 	}

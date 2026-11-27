@@ -4,6 +4,7 @@ package commission
 // test here talks to a real device.
 
 import (
+	"errors"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -256,4 +257,63 @@ func TestIsUp(t *testing.T) {
 	if isUp(luminex.Device{IP: "127.0.0.1", APIKind: ""}, nil) {
 		t.Error("unknown kind reported up")
 	}
+}
+
+func TestWriteThatNeverLeftIsAFailure(t *testing.T) {
+	f := newWire(t, answer(204))
+	d := luminex.Device{IP: f.addr(), APIKind: "luminode"}
+	rq := resetRequest(d, false, false)
+	f.srv.Close()
+	res := sendWrite(d, nil, rq, nil)
+	if res.Outcome != "failed" || !strings.Contains(res.Reason, "Not sent") {
+		t.Errorf("a refused connection must not read as sent: %+v", res)
+	}
+}
+
+func TestFindAuthRefusesAnotherDevice(t *testing.T) {
+	json := func(body string) func(http.ResponseWriter, *http.Request) {
+		return func(w http.ResponseWriter, r *http.Request) { w.Write([]byte(body)) }
+	}
+	t.Run("node answering with another serial", func(t *testing.T) {
+		f := newWire(t, json(`{"serial":"LUM222","short_name":"B"}`))
+		_, _, err := findAuth(luminex.Device{ID: "LUM111", Serial: "LUM111", IP: f.addr(), APIKind: "luminode"}, nil)
+		if !errors.Is(err, errWrongDevice) {
+			t.Fatalf("err = %v, wanted errWrongDevice", err)
+		}
+	})
+	t.Run("same serial, any case", func(t *testing.T) {
+		f := newWire(t, json(`{"serial":"lum111"}`))
+		if _, _, err := findAuth(luminex.Device{Serial: "LUM111", IP: f.addr(), APIKind: "gen2"}, nil); err != nil {
+			t.Error(err)
+		}
+	})
+	t.Run("serial differs but the MAC is ours", func(t *testing.T) {
+		f := newWire(t, json(`{"serial":"0042","mac_address":"D0-69-9E-00-00-01"}`))
+		d := luminex.Device{Serial: "LUM111", MAC: "d0:69:9e:00:00:01", IP: f.addr(), APIKind: "gen2"}
+		if _, _, err := findAuth(d, nil); err != nil {
+			t.Error(err)
+		}
+	})
+	t.Run("a reply with no serial is let through", func(t *testing.T) {
+		f := newWire(t, answer(200))
+		if _, _, err := findAuth(luminex.Device{Serial: "LUM111", IP: f.addr(), APIKind: "luminode"}, nil); err != nil {
+			t.Error(err)
+		}
+	})
+	t.Run("gen1 is read from switchlegend", func(t *testing.T) {
+		legend := "DESK,descr,1,LUM999,rev,ass,d0-69-9e-00-00-09"
+		f := newWire(t, func(w http.ResponseWriter, r *http.Request) {
+			if r.URL.Path == "/config/switchlegend" {
+				w.Write([]byte(legend))
+			}
+		})
+		d := luminex.Device{Serial: "LUM111", MAC: "d0:69:9e:00:00:01", IP: f.addr(), APIKind: "gen1"}
+		if _, _, err := findAuth(d, nil); !errors.Is(err, errWrongDevice) {
+			t.Errorf("err = %v, wanted errWrongDevice", err)
+		}
+		d.Serial = "LUM999"
+		if _, _, err := findAuth(d, nil); err != nil {
+			t.Error(err)
+		}
+	})
 }

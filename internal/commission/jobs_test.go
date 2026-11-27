@@ -276,3 +276,42 @@ func TestCancelDuringCheckSendsNothing(t *testing.T) {
 		t.Errorf("item after cancel: %+v", s.Items[0])
 	}
 }
+
+// A reset whose connection was lost after sending proves nothing by itself: a device that keeps answering and
+// stays in mDNS at its address did not restart, however long ago the request went.
+func TestResetIsNotConfirmedByADroppedConnectionAlone(t *testing.T) {
+	j, it := rebootingJob("reset")
+	stubEvidence(t, true, func() ([]luminex.Device, error) { return []luminex.Device{realDevice("2.0.0.1")}, nil })
+	j.verifyPass()
+	j.mu.Lock()
+	down := it.wentDown
+	j.mu.Unlock()
+	if s := j.snapshot(); down || s.Items[0].Status != "rebooting" {
+		t.Errorf("down=%v status %q (%s), wanted still waiting", down, s.Items[0].Status, s.Items[0].Detail)
+	}
+}
+
+func TestDroppedWriteDoesNotCountAsWentDown(t *testing.T) {
+	f := newWire(t, func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == "GET" {
+			return
+		}
+		if c, _, err := w.(http.Hijacker).Hijack(); err == nil {
+			c.Close()
+		}
+	})
+	stubEvidence(t, true, func() ([]luminex.Device, error) { return nil, errors.New("no scan in this test") })
+	oldReach := reachability
+	reachability = func(string, int) luminex.Reach { return luminex.Reach{Reachable: true, Via: "test"} }
+	t.Cleanup(func() { reachability = oldReach })
+	it := &Item{ID: "x", Device: luminex.Device{ID: "x", IP: f.addr(), APIKind: "luminode"}}
+	j := newJob("reset", []*Item{it}, func() {}, &sync.Mutex{})
+	j.runOne(it, nil)
+	j.mu.Lock()
+	down, status := it.wentDown, it.Status
+	j.mu.Unlock()
+	j.cancel()
+	if down || status != "rebooting" {
+		t.Errorf("down=%v status=%q, wanted rebooting and not yet down", down, status)
+	}
+}
