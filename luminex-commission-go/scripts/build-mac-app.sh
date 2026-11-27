@@ -8,7 +8,7 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 export PATH="/opt/homebrew/bin:/usr/local/go/bin:$PATH"
 if [ "$(uname)" != "Darwin" ]; then echo "The Mac app can only be built on a Mac."; exit 1; fi
-VERSION="${VERSION:-$(git describe --tags --abbrev=0 2>/dev/null | sed 's/^v//')}"
+VERSION="${VERSION:-$(git describe --tags --abbrev=0 2>/dev/null | sed 's/^v//' || true)}"
 VERSION="${VERSION:-dev}"
 LDFLAGS="-s -w -X main.version=$VERSION"
 NAME="Luminex Commission"
