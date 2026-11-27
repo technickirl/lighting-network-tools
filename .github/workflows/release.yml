@@ -33,6 +33,7 @@ jobs:
           VERSION="${GITHUB_REF_NAME#v}"   # v1.0.5 -> 1.0.5, in every file name and in the binary
           build() { GOOS=$2 GOARCH=$3 GOARM=6 go build -trimpath -ldflags "-s -w -X main.version=$VERSION" -o "out/$4" "./$1"; }
           tool=luminex-commission-go name=LuminexCommission
+          VERSION="$VERSION" ./$tool/scripts/windows-icon.sh   # the .exe's icon and version details
           build $tool darwin  arm64 $name-$VERSION-macos-arm64.command
           build $tool darwin  amd64 $name-$VERSION-macos-x64.command
           build $tool windows amd64 $name-$VERSION-win-x64.exe
@@ -56,5 +57,22 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           gh release create "$GITHUB_REF_NAME" --title "Luminex Commission $GITHUB_REF_NAME" --generate-notes \
-            --notes "Built by CI from tag $GITHUB_REF_NAME. Mac: unzip and double-click. Raspberry Pi: see the Commission README. Builds are not notarised, so the first time use System Settings → Privacy & Security → Open Anyway, or \`xattr -d com.apple.quarantine <file>\`. Opens http://localhost:3800. Use DRY_RUN=1 for a first run on real hardware." \
+            --notes "Built by CI from tag $GITHUB_REF_NAME. Mac: unzip and double-click; the -macos-app zip is an app with a menu bar icon, the others run in Terminal. Raspberry Pi: see the Commission README. Builds are not notarised, so the first time use System Settings → Privacy & Security → Open Anyway, or \`xattr -d com.apple.quarantine <file>\`. Opens http://localhost:3800. Use DRY_RUN=1 for a first run on real hardware." \
             out/*
+
+  # The Mac app (icon, menu bar icon) is built with cgo against Cocoa, which needs a
+  # Mac. It is added to the release the job above made.
+  mac-app:
+    needs: release
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - name: build the Mac app
+        run: VERSION="${GITHUB_REF_NAME#v}" ./luminex-commission-go/scripts/build-mac-app.sh
+      - name: add it to the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release upload "$GITHUB_REF_NAME" luminex-commission-go/dist/*-macos-app.zip

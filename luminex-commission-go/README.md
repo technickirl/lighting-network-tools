@@ -304,6 +304,16 @@ to what each node has overheard. Releases ship each Mac binary in a zip, which k
 it executable. They are not notarised: the first time, use System Settings → Privacy &
 Security → Open Anyway, or run `xattr -d com.apple.quarantine <file>` once. Build with `./scripts/build.sh` or `scripts\build.bat`.
 
+**The Mac app.** `./scripts/build-mac-app.sh` (a Mac with the Xcode command line tools; `build.sh` runs it too) makes
+`dist/Luminex Commission.app` and `dist/LuminexCommission-<version>-macos-app.zip`: the same program for Apple silicon
+and Intel, built with cgo for a menu bar icon (`app_darwin.go`, `app_darwin.m`), with the icon in `icon/`. Started from
+the app there is no Terminal window: the log is `~/Library/Logs/LuminexCommission.log` (the run before is kept as
+`LuminexCommission.previous.log`), and the menu bar icon has Open in Browser, Show Log and Quit. Clicking the app again
+while it runs opens the page. macOS asks once to allow it on the local network (System Settings → Privacy & Security →
+Local Network); until that is allowed the scan cannot send and the log shows `no route to host`. Options go through
+`open`: `open "Luminex Commission.app" --env DRY_RUN=1 --args --no-open`. The binary inside, started from a shell,
+behaves as the `.command` does.
+
 ## Real hardware
 
 Checked on 4 Nov 2026 on a GigaCore 16tf (v1.9.2) and a LumiNode 12 (v2.9.1): both

@@ -31,6 +31,12 @@ The Mac builds are not notarised: before the first launch run
 `xattr -d com.apple.quarantine <file>`, or use System Settings → Privacy & Security →
 Open Anyway. The page opens at `http://localhost:3800`.
 
+On a Mac there are two forms. `…-macos-app.zip` holds **Luminex Commission.app** (one
+app for Apple silicon and Intel): it has an icon, can sit in the Dock, and shows a menu
+bar icon while it runs (Open in Browser, Show Log, Quit) instead of a Terminal window.
+macOS asks once to let it find devices on the local network: choose Allow, or the scan
+finds nothing. The `.command` files run in a Terminal window, which is their log.
+
 `DRY_RUN=1` logs every write request instead of sending it. Use it for a first run on
 real hardware.
 
