@@ -19,11 +19,12 @@
   NSImage *img = [NSImage imageWithSystemSymbolName:@"point.3.connected.trianglepath.dotted"
                            accessibilityDescription:self.title];
   if (!img) img = [NSImage imageWithSystemSymbolName:@"network" accessibilityDescription:self.title];
+  // The letters go beside the symbol: on its own, one small symbol among a dozen others is easy to miss.
+  self.item.button.title = @"LC";
   if (img) {
     img.template = YES;
     self.item.button.image = img;
-  } else {
-    self.item.button.title = @"LC";
+    self.item.button.imagePosition = NSImageLeft;
   }
   self.item.button.toolTip = self.title;
 

@@ -308,7 +308,7 @@ Security → Open Anyway, or run `xattr -d com.apple.quarantine <file>` once. Bu
 `dist/Luminex Commission.app` and `dist/LuminexCommission-<version>-macos-app.zip`: the same program for Apple silicon
 and Intel, built with cgo for a menu bar icon (`app_darwin.go`, `app_darwin.m`), with the icon in `icon/`. Started from
 the app there is no Terminal window: the log is `~/Library/Logs/LuminexCommission.log` (the run before is kept as
-`LuminexCommission.previous.log`), and the menu bar icon has Open in Browser, Show Log and Quit. Clicking the app again
+`LuminexCommission.previous.log`), and the menu bar icon (a symbol of three joined dots with the letters LC) has Open in Browser, Show Log and Quit. Clicking the app again
 while it runs opens the page. macOS asks once to allow it on the local network (System Settings → Privacy & Security →
 Local Network); until that is allowed the scan cannot send and the log shows `no route to host`. Options go through
 `open`: `open "Luminex Commission.app" --env DRY_RUN=1 --args --no-open`. The binary inside, started from a shell,

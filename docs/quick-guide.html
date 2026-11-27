@@ -23,7 +23,7 @@
 </head>
 <body>
 <h1>Luminex Commission – Quick User Guide</h1>
-<p class="byline">27 November 2026 · version 2.1.2 · Nick Malbon and Alex Mead</p>
+<p class="byline">27 November 2026 · version 2.1.3 · Nick Malbon and Alex Mead</p>
 
 <section>
 <h2>What it does</h2>
@@ -41,7 +41,7 @@
 <ol>
 <li><p>Download the release for your laptop: <code>LuminexCommission-&lt;version&gt;-macos-app</code> (any Mac: an app with a menu bar icon), <code>-macos-arm64</code> or <code>-macos-x64</code> (Apple silicon or Intel Mac, in a Terminal window) or <code>-win-x64.exe</code>. Mac builds come as a zip; unzip it.</p></li>
 <li><p>Give the laptop a static address on the show network, on the same first two octets as the rig (for example <code>192.168.0.200/16</code>), on the wired port.</p></li>
-<li><p>Start it. Mac: the first time, run <code>xattr -d com.apple.quarantine &lt;file&gt;</code> or use System Settings → Privacy &amp; Security → Open Anyway, then double-click. The Mac app asks once to find devices on your local network: choose Allow, or the scan finds nothing. It has no window: quit it from its menu bar icon, where Show Log is too. Windows: double-click, and allow it through the firewall when asked.</p></li>
+<li><p>Start it. Mac: the first time, run <code>xattr -d com.apple.quarantine &lt;file&gt;</code> or use System Settings → Privacy &amp; Security → Open Anyway, then double-click. The Mac app asks once to find devices on your local network: choose Allow, or the scan finds nothing. It has no window: quit it from its menu bar icon (three joined dots and <strong>LC</strong>), where Show Log is too. Windows: double-click, and allow it through the firewall when asked.</p></li>
 <li><p>The page opens at <code>http://localhost:3800</code> and scans straight away. Close any other Art-Net software first: RDM needs UDP port 6454.</p></li>
 </ol>
 </section>
