@@ -53,6 +53,12 @@ RDM requests are outside this. `{ip}` must be a dotted IPv4 address and `{idx}`,
 the fixture and puts the address back, and a fixture still on its address is
 read once more 2 s later before it is called kept (fakes only).
 
+A batch on selected fixtures (ID, PERSONALITY, SETTING, READDRESS, FACTORY RESET)
+has a STOP button: it ends after the fixture being changed, and the toast says how
+many were done and how many were not sent. The same toast appears if the page
+moves to another node part way. Saving a device name never writes "—" (how an
+empty name is shown) back to the node.
+
 ## Process and IOs pages
 
 Both pages show the node the way an operator talks about it, not by IO id.

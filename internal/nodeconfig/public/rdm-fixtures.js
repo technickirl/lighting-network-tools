@@ -137,6 +137,7 @@ function rdmBatchBar(port) {
     <button class="btn sm${b && b.kind === 'readdress' ? ' active-tab' : ''}" onclick="rdmBatchOpen('readdress')" ${dis || (list.some(f => f.start != null && !f.error) ? `title="Readdress them in the order they are patched now, spaced for a new mode${same ? '' : ' (mixed models: each keeps its mode)'} or by a number of channels"` : 'disabled title="None of them has a DMX address"')}>READDRESS…</button>
     <button class="btn sm dan${b && b.kind === 'factory' ? ' active-tab' : ''}" onclick="rdmBatchOpen('factory')" ${dis || 'title="Factory reset the selected fixtures (asks first, in the page)"'}>FACTORY RESET…</button>
     <button class="btn sm" onclick="rdm.sel = null; rdm.batch = null; renderRdm()" ${dis}>CLEAR</button>
+    <button class="btn sm dan" onclick="rdm.batch.stop = true; renderRdm()" ${running ? (b.stop ? 'disabled title="Stopping after the fixture being changed now"' : 'title="Stop after the fixture being changed now. The rest are not sent"') : 'disabled title="Nothing is running"'}>STOP</button>
     ${extra ? `<div class="rdm-batch-extra">${extra}${b && !running ? ' <button class="btn sm" onclick="rdm.batch = null; renderRdm()">CANCEL</button>' : ''}</div>` : ''}
   </div>`;
 }
@@ -178,13 +179,18 @@ async function rdmBatchEach(label, fn) {
   const port = rdm.sel.port, ip = currentIp;
   const list = rdm.read[port].fixtures.filter(f => rdm.sel.uids.has(f.uid));
   if (rdm.batch) rdm.batch.running = true; else rdm.batch = { port, running: true };
-  let good = 0;
+  const mine = rdm.batch;
+  let good = 0, tried = 0, why = '';
   for (const f of list) {
+    // STOP pressed, or the page now shows another node: the rest are not sent, and the toast below says so.
+    if (mine.stop) { why = 'stopped'; break; }
+    if (ip !== currentIp) { why = 'the page moved to another node'; break; }
     rdm.fxStatus[f.uid] = { state: 'busy', text: label + '…' };
     renderRdm();
+    tried++;
     try {
       const d = await fn(f, ip, port);
-      if (ip !== currentIp) return;
+      if (ip !== currentIp) { good++; why = 'the page moved to another node'; break; }
       if (d && d.fixture) rdmReplace(port, d.fixture);
       rdm.fxStatus[f.uid] = { state: 'ok', text: d && d.dryRun ? 'DRY RUN — not sent' : (d && d.note) || label + ' ✓' };
       good++;
@@ -192,9 +198,12 @@ async function rdmBatchEach(label, fn) {
       rdm.fxStatus[f.uid] = { state: 'err', text: e.message };
     }
   }
-  rdm.batch = null;
+  if (rdm.batch === mine) rdm.batch = null;
+  const left = list.length - tried;
+  if (why) toast(`${label}: ${why} after ${good} of ${list.length}. ${left} not sent${left ? ', so the rig is part changed' : ''}.`, true);
+  else toast(`${label}: ${good} of ${list.length} done`, good < list.length);
+  if (ip !== currentIp) return; // the tiles on screen are another node's
   renderRdm();
-  toast(`${label}: ${good} of ${list.length} done`, good < list.length);
   if (rdm.panel && list.some(f => f.uid === rdm.panel.uid)) rdmLoadPanel(); // the open fixture page now shows old values
   setTimeout(() => { for (const f of list) if (rdm.fxStatus[f.uid] && rdm.fxStatus[f.uid].state !== 'err') delete rdm.fxStatus[f.uid]; renderRdm(); }, 6000);
 }

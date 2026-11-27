@@ -741,6 +741,28 @@ func Locked(ip string) (bool, string) {
 	return true, busyWhy(job)
 }
 
+// SerialAt is the serial of the one listed device at ip, or "" when none, several or unknown. The Configure page's
+// writes go by address, so they are checked against it: a list gone stale, or a second device taking the address,
+// must not put a block edit or a Quick Setup on another node.
+func SerialAt(ip string) string {
+	if !checkShared() { // the test fakes all answer on one address
+		return ""
+	}
+	state.mu.Lock()
+	defer state.mu.Unlock()
+	serial, n := "", 0
+	for _, d := range state.devices {
+		if d.IP == ip {
+			serial = d.Serial
+			n++
+		}
+	}
+	if n != 1 {
+		return ""
+	}
+	return serial
+}
+
 // handleDevice is what a configure page polls to follow its device: where it is
 // now and whether a job has it.
 func handleDevice(w http.ResponseWriter, r *http.Request) {
