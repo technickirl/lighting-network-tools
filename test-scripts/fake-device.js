@@ -31,7 +31,7 @@ const FAKES = [
   { kind: 'gen1',     instance: 'GigaCore16Xt Fake', txt: { product_type: 'GigaCore16Xt', mac: 'aa:bb:cc:00:00:03', firmware_version: 'v2.3.3', serial: 'GC1600000003', device_name: 'Rack Switch' } },
   { kind: 'gen2',     instance: 'GigaCore10i Fake',  txt: { product_type: 'GigaCore10i',  mac: 'aa:bb:cc:00:00:04', firmware_version: 'v3.1.0', serial: 'GC1000000004', device_name: 'Stage Switch' } },
   { kind: 'unknown',  instance: 'Mystery Fake',      txt: { product_type: 'GigaCore99',   mac: 'aa:bb:cc:00:00:05', firmware_version: 'v1.0.0', serial: 'GC9900000005', device_name: 'Odd One' } },
-  { kind: 'luminode', instance: 'LumiNode4 Far',     txt: { product_type: 'LumiNode4',   mac: 'aa:bb:cc:00:00:06', firmware_version: 'v2.7.2', serial: 'LUM607697448', device_name: 'Unreachable Node' }, ip: '192.168.4.55/16' },
+  { kind: 'luminode', instance: 'LumiNode4 Far',     txt: { product_type: 'LumiNode4',   mac: 'aa:bb:cc:00:00:06', firmware_version: 'v2.7.2', serial: 'LUM607697448', device_name: 'Unreachable Node' }, ip: '192.0.2.55/24' }, // a documentation-only address (RFC 5737): no real device can hold it, so nothing aimed at this fake can reach one
 ];
 
 // One HTTP server answers for all fakes; they are told apart by... nothing,

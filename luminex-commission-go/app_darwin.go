@@ -50,7 +50,7 @@ func logToFile() (string, error) {
 	}
 	path := filepath.Join(dir, "LuminexCommission.log")
 	os.Rename(path, filepath.Join(dir, "LuminexCommission.previous.log"))
-	f, err := os.OpenFile(path, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0o644)
+	f, err := os.OpenFile(path, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0o600) // it holds the PIN for other devices
 	if err != nil {
 		return "", err
 	}

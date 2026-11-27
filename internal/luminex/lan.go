@@ -263,7 +263,9 @@ func (l *LANAccess) reconcile() {
 			continue
 		}
 		delete(l.errs, a)
-		srv := &http.Server{Handler: l.guard(l.handler), ReadHeaderTimeout: 10 * time.Second}
+		// Idle connections are closed, so a device on the network cannot hold sockets open for ever. There is
+		// no ReadTimeout or WriteTimeout: the event stream and the WebSocket stay open for hours.
+		srv := &http.Server{Handler: l.guard(l.handler), ReadHeaderTimeout: 10 * time.Second, IdleTimeout: 2 * time.Minute, MaxHeaderBytes: 16 << 10}
 		l.listeners[a] = srv
 		Logf("other devices: listening on http://%s", a)
 		go func() { _ = srv.Serve(ln) }()
@@ -400,6 +402,20 @@ func (l *LANAccess) checkPIN(pin string) (string, error) {
 	return t, nil
 }
 
+// localPath says whether next is a path on this server, safe to send a browser to after sign-in. Browsers drop
+// tabs and newlines from a URL and read a backslash as a slash, so "/\t/host" or "/\\host" would leave the site.
+func localPath(next string) bool {
+	if !strings.HasPrefix(next, "/") || strings.HasPrefix(next, "//") {
+		return false
+	}
+	for _, c := range next {
+		if c < 0x20 || c == 0x7f || c == '\\' {
+			return false
+		}
+	}
+	return true
+}
+
 // pinPage is the sign-in page for another device. The page sends the PIN with
 // fetch as JSON, not as a form: browsers flag a form submitted over plain http
 // as insecure ("Not Secure", "the information you're about to submit is not
@@ -408,10 +424,14 @@ func (l *LANAccess) checkPIN(pin string) (string, error) {
 // plain form POST is still accepted (older pages, tests).
 func (l *LANAccess) pinPage(w http.ResponseWriter, r *http.Request) {
 	asJSON := strings.HasPrefix(r.Header.Get("Content-Type"), "application/json")
+	// This page answers anyone on the network, before any PIN, so nothing it reads may be large: a PIN and a
+	// path fit in 1 KiB whether they come as JSON or as a form. Unlimited, a multipart post is buffered in
+	// memory and spooled to disk by FormValue.
+	r.Body = http.MaxBytesReader(w, r.Body, 1<<10)
 	var pin, next string
 	if asJSON && r.Method == http.MethodPost {
 		var body struct{ PIN, Next string }
-		if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, 1<<10)).Decode(&body); err != nil {
+		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
 			w.Header().Set("Content-Type", "application/json; charset=utf-8")
 			w.WriteHeader(http.StatusBadRequest)
 			fmt.Fprint(w, `{"ok":false,"error":"Bad request."}`)
@@ -421,7 +441,7 @@ func (l *LANAccess) pinPage(w http.ResponseWriter, r *http.Request) {
 	} else {
 		pin, next = r.FormValue("pin"), r.FormValue("next")
 	}
-	if next == "" || !strings.HasPrefix(next, "/") || strings.HasPrefix(next, "//") || strings.HasPrefix(next, "/\\") {
+	if !localPath(next) {
 		next = "/"
 	}
 	msg := ""

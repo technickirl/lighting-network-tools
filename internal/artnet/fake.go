@@ -8,6 +8,7 @@ import (
 	"encoding/binary"
 	"net"
 	"sync"
+	"time"
 )
 
 // FakeFixture is one fake RDM device.
@@ -38,12 +39,31 @@ type FakeFixture struct {
 	Restarts     int
 	AckTimerOnce bool // answer the first DEVICE_LABEL with ACK_TIMER, as a slow device would
 	Silent       bool // never answer RDM (a device that has gone)
+	MuteReset    bool // do a factory reset but never acknowledge it
+	LateReset    bool // acknowledge a factory reset at once and apply it a moment later
 	// What each channel is, for SLOT_INFO, and its name for SLOT_DESCRIPTION.
 	// A fixture with no Slots does not know either request, like many real ones.
 	Slots     []Slot
 	SlotNames map[uint16]string
 
 	timerSent bool
+	resetAt   time.Time // LateReset: acknowledged, applied from this moment
+}
+
+func (fx *FakeFixture) toDefaults() {
+	fx.Start, fx.Personality, fx.Label, fx.Identify = 1, 1, "", false
+	if len(fx.Curves) > 0 {
+		fx.Curve = 1
+	}
+	for _, p := range fx.Params {
+		switch {
+		case p.Factory != nil:
+			p.Value = append([]byte(nil), p.Factory...)
+		case p.Desc.CanGet() && p.Desc.Numeric():
+			p.Value = EncodeNumber(p.Desc.Default, p.Desc.Size)
+		}
+	}
+	fx.AtDefaults = true
 }
 
 // FakeParam is a manufacturer parameter of a fake fixture.
@@ -225,6 +245,10 @@ func (f *FakeNode) answer(pa PortAddress, m []byte) []byte {
 	}
 	if fx == nil || fx.Silent || (cc != CCGet && cc != CCSet) {
 		return nil
+	}
+	if !fx.resetAt.IsZero() && time.Now().After(fx.resetAt) {
+		fx.resetAt = time.Time{}
+		fx.toDefaults()
 	}
 	resp := Response{Dest: src, Src: fx.UID, TN: tn, Type: RespAck, CC: CCGetResponse, PID: pid}
 	nack := func(reason uint16) []byte {
@@ -445,19 +469,14 @@ func (fx *FakeFixture) answerParams(resp Response, cc byte, pid uint16, data []b
 			}
 			return ack([]byte{0})
 		}
-		fx.Start, fx.Personality, fx.Label, fx.Identify = 1, 1, "", false
-		if len(fx.Curves) > 0 {
-			fx.Curve = 1
+		if fx.LateReset {
+			fx.resetAt = time.Now().Add(150 * time.Millisecond)
+			return ack(nil)
 		}
-		for _, p := range fx.Params {
-			switch {
-			case p.Factory != nil:
-				p.Value = append([]byte(nil), p.Factory...)
-			case p.Desc.CanGet() && p.Desc.Numeric():
-				p.Value = EncodeNumber(p.Desc.Default, p.Desc.Size)
-			}
+		fx.toDefaults()
+		if fx.MuteReset {
+			return nil, true
 		}
-		fx.AtDefaults = true
 		return ack(nil)
 	case pid == PIDResetDevice && cc == CCSet:
 		if len(data) != 1 || data[0] != 0x01 && data[0] != 0xFF {

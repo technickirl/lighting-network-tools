@@ -28,8 +28,10 @@ import (
 	"net/url"
 	"os"
 	"os/exec"
+	"os/signal"
 	"runtime"
 	"strconv"
+	"syscall"
 )
 
 // version is the release this build belongs to. Builds from a v* tag set it
@@ -216,6 +218,15 @@ func main() {
 		startLAN(lan, os.Stdout)
 	}
 	commission.Start()
+	// Ctrl-C, or closing the Terminal window, would otherwise just cut the sACN output off: receivers then hold
+	// the last levels for their 2.5 s timeout. Stop sends each universe's "stream terminated" packets first.
+	quit := make(chan os.Signal, 1)
+	signal.Notify(quit, os.Interrupt, syscall.SIGTERM, syscall.SIGHUP)
+	go func() {
+		<-quit
+		sacn.Output().Stop()
+		os.Exit(0)
+	}()
 	serve := func() {
 		if err := http.Serve(ln, luminex.LocalOnly(mux)); err != nil {
 			luminex.Errorf("server: %v", err)

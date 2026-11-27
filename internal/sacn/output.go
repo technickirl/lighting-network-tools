@@ -192,6 +192,8 @@ type output struct {
 	// The fade a fixture is in, by id. A newer fade, Clear or Remove changes it and the old fade stops.
 	fading  map[int]int
 	fadeSeq int
+	// restoring is, for a fixture fading back from highlight, the levels it is going back to.
+	restoring map[int]map[int]byte
 	// Universes the operator ticked to send with nothing on them: kept, at zero,
 	// where an idle universe is otherwise let go.
 	keep map[int]bool
@@ -404,23 +406,36 @@ func (o *output) highlight(id int, on bool) error {
 	if o.lit == nil {
 		o.lit, o.fading = map[int]map[int]byte{}, map[int]int{}
 	}
+	if o.restoring == nil {
+		o.restoring = map[int]map[int]byte{}
+	}
 	now, _ := o.sender.Levels(uint16(f.Universe))
 	from, to := map[int]byte{}, map[int]byte{}
 	if on {
 		if o.lit[id] != nil {
 			return nil
 		}
+		// Turned on again while still fading back: the levels to go back to are the ones that fade was heading
+		// for, not the half-faded ones on the wire now, or the fixture would be left lit when this ends.
+		back := o.restoring[id]
+		orig := map[int]byte{}
 		if p := o.profile(f.Profile); p != nil {
 			for i, c := range p.Channels {
 				if a := f.Address + i; c.Highlight != nil && *c.Highlight >= 0 && a <= 512 {
 					from[a], to[a] = now[a-1], byte(*c.Highlight)
+					if v, ok := back[a]; ok {
+						orig[a] = v
+					} else {
+						orig[a] = now[a-1]
+					}
 				}
 			}
 		}
 		if len(to) == 0 {
 			return fmt.Errorf("the profile %q has no highlight levels: set them on Profiles", f.Profile)
 		}
-		o.lit[id] = from
+		o.lit[id] = orig
+		delete(o.restoring, id)
 	} else {
 		to = o.lit[id]
 		if to == nil {
@@ -430,18 +445,19 @@ func (o *output) highlight(id int, on bool) error {
 			from[a] = now[a-1]
 		}
 		delete(o.lit, id)
+		o.restoring[id] = to
 	}
 	o.fadeSeq++
 	seq := o.fadeSeq
 	o.fading[id] = seq
-	go o.fade(id, seq, uint16(f.Universe), from, to)
+	go o.fade(id, seq, uint16(f.Universe), from, to, HighlightFade)
 	return nil
 }
 
-func (o *output) fade(id, seq int, u uint16, from, to map[int]byte) {
+func (o *output) fade(id, seq int, u uint16, from, to map[int]byte, over time.Duration) {
 	const steps = 20
 	for s := 1; s <= steps; s++ {
-		time.Sleep(HighlightFade / steps)
+		time.Sleep(over / steps)
 		o.mu.Lock()
 		if o.fading[id] != seq {
 			o.mu.Unlock()
@@ -452,6 +468,9 @@ func (o *output) fade(id, seq int, u uint16, from, to map[int]byte) {
 			set[a] = byte(int(from[a]) + (int(t)-int(from[a]))*s/steps)
 		}
 		_ = o.sender.Set(u, set)
+		if s == steps {
+			delete(o.restoring, id) // back where it was (after a fade up there is nothing to drop)
+		}
 		o.mu.Unlock()
 	}
 }
@@ -538,6 +557,7 @@ func (o *output) remove(ids []int) {
 		}
 		delete(o.lit, f.ID)
 		delete(o.fading, f.ID)
+		delete(o.restoring, f.ID)
 		set := map[int]byte{}
 		for i := 0; i < o.footprint(f) && f.Address+i <= 512; i++ {
 			set[f.Address+i] = 0
@@ -569,7 +589,7 @@ func (o *output) releaseIfIdle(u int) {
 
 // clear puts every fixture at its defaults and every other channel at zero.
 func (o *output) clear() {
-	o.lit, o.fading = map[int]map[int]byte{}, map[int]int{} // highlights end here too
+	o.lit, o.fading, o.restoring = map[int]map[int]byte{}, map[int]int{}, map[int]map[int]byte{} // highlights end here too
 	for _, u := range o.sender.Universes() {
 		set := map[int]byte{}
 		for a := 1; a <= 512; a++ {
@@ -618,12 +638,19 @@ type outState struct {
 	Types      []string          `json:"types"`
 	MaxOutput  int               `json:"maxOutput"`
 	Folder     string            `json:"folder"`
+	// RxError is why the tool cannot listen for other sources, when it cannot: then "others" being empty
+	// does not mean nobody else is sending.
+	RxError string `json:"rxError,omitempty"`
 }
 
 func (o *output) state() outState {
 	// Ask the receiver first: it asks the sender for its universes, so neither lock is held across the other.
 	heard := map[int][]otherSource{}
-	if rx, err := Shared(); err == nil {
+	rxError := ""
+	if rx, err := Shared(); err != nil {
+		// Without the receiver nothing can be heard, so "no other source" would be a guess. Say so.
+		rxError = err.Error()
+	} else {
 		own := o.sender.CID().String()
 		for _, u := range rx.Status().Universes {
 			for _, s := range u.Sources {
@@ -639,7 +666,7 @@ func (o *output) state() outState {
 	st := outState{
 		SenderState: o.sender.State(), Dry: luminex.DryRun, Interfaces: OutputInterfaces(),
 		Universes: []outUniverse{}, Fixtures: []fixtureView{}, Profiles: o.allProfiles(), Types: ChannelTypes,
-		MaxOutput: MaxOutput, Folder: filepath.Dir(settingsPath()),
+		MaxOutput: MaxOutput, Folder: filepath.Dir(settingsPath()), RxError: rxError,
 	}
 	if st.Interface == "" {
 		s := loadSettings()

@@ -323,3 +323,37 @@ func TestLANSettingSavesPIN(t *testing.T) {
 		t.Errorf("on: %d %s", c, b)
 	}
 }
+
+func TestSignInOnlyGoesToAPathOnThisServer(t *testing.T) {
+	for next, want := range map[string]bool{"/": true, "/configure/?ip=1.2.3.4#node=1": true,
+		"": false, "configure": false, "//evil.example": false, "/\\evil.example": false, "/\t/evil.example": false, "/\n/evil.example": false, "https://evil.example": false} {
+		if localPath(next) != want {
+			t.Errorf("localPath(%q) = %v", next, !want)
+		}
+	}
+	l, base := lanForTest(t)
+	s := l.Enable()
+	res, err := noRedirect.PostForm(base+"/pin", url.Values{"pin": {s.PIN}, "next": {"/\t/evil.example"}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	res.Body.Close()
+	if res.StatusCode != http.StatusSeeOther || res.Header.Get("Location") != "/" {
+		t.Errorf("%d %q", res.StatusCode, res.Header.Get("Location"))
+	}
+}
+
+// The PIN page answers before any PIN, so a large post must not be read: here the right PIN sits behind 64 KiB
+// of padding, where only an unlimited read would find it.
+func TestPINPageReadsNoLargeBody(t *testing.T) {
+	l, base := lanForTest(t)
+	s := l.Enable()
+	res, err := noRedirect.PostForm(base+"/pin", url.Values{"pad": {strings.Repeat("x", 64<<10)}, "pin": {s.PIN}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	res.Body.Close()
+	if res.StatusCode == http.StatusSeeOther || len(res.Cookies()) > 0 {
+		t.Errorf("a 64 KiB post was read in full: %d", res.StatusCode)
+	}
+}
