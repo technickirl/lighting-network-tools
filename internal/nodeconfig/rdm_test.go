@@ -681,3 +681,39 @@ func TestRDMFactoryResetKeepsAddressDryRun(t *testing.T) {
 		t.Errorf("the fixture changed under DRY_RUN: start %d personality %d", b.Start, b.Personality)
 	}
 }
+
+// The fixture reset but its acknowledgement never came: the address still goes back.
+func TestRDMFactoryResetKeepsAddressWhenTheResetIsNotAnswered(t *testing.T) {
+	n, srv := newRDMNode(t)
+	n.ios[1]["rdm"], n.ios[1]["rdm_universe"] = true, float64(1)
+	n.fake.Lock()
+	b := n.fake.Ports[1][0]
+	b.Start, b.MuteReset = 300, true
+	n.fake.Unlock()
+	code, out := rdmCall(t, srv, "POST", "/rdm/1/fixture/4F75:000DC114/factory-reset", `{"keepAddress":true}`)
+	n.fake.Lock()
+	defer n.fake.Unlock()
+	if code != 200 || out["note"] != "address 300 kept" || b.Start != 300 || !b.AtDefaults && b.Personality != 1 {
+		t.Errorf("%d %v; fixture start %d personality %d", code, out, b.Start, b.Personality)
+	}
+}
+
+// A fixture that acknowledges first and applies its defaults a moment later must not be called "kept" on the
+// strength of the first read.
+func TestRDMFactoryResetKeepsAddressOfALateResetter(t *testing.T) {
+	old := resetSettle
+	resetSettle = 300 * time.Millisecond
+	t.Cleanup(func() { resetSettle = old })
+	n, srv := newRDMNode(t)
+	n.ios[1]["rdm"], n.ios[1]["rdm_universe"] = true, float64(1)
+	n.fake.Lock()
+	b := n.fake.Ports[1][0]
+	b.Start, b.LateReset = 300, true
+	n.fake.Unlock()
+	code, out := rdmCall(t, srv, "POST", "/rdm/1/fixture/4F75:000DC114/factory-reset", `{"keepAddress":true}`)
+	n.fake.Lock()
+	defer n.fake.Unlock()
+	if code != 200 || out["note"] != "address 300 kept" || b.Start != 300 || b.Personality != 1 {
+		t.Errorf("%d %v; fixture start %d personality %d", code, out, b.Start, b.Personality)
+	}
+}

@@ -510,3 +510,48 @@ func TestFineChannels(t *testing.T) {
 		}
 	}
 }
+
+// Highlight on, off, and on again before the fade back has finished: the fixture must still end where it began,
+// not at the half-faded levels the second "on" found on the wire.
+func TestHighlightAgainWhileFadingBack(t *testing.T) {
+	old := HighlightFade
+	HighlightFade = 60 * time.Millisecond
+	defer func() { HighlightFade = old }()
+	o, _ := testOutput(t)
+	level := func(a int) byte { l, _ := o.sender.Levels(1); return l[a-1] }
+	o.mu.Lock()
+	o.load()
+	if err := o.add("Par 1", "Dimmer + RGBW", 1, 1, 1); err != nil {
+		t.Fatal(err)
+	}
+	_ = o.sender.Set(1, map[int]byte{1: 10, 2: 40})
+	par := o.fixtures[0].ID
+	_ = o.highlight(par, true)
+	o.mu.Unlock()
+	time.Sleep(120 * time.Millisecond) // fully highlighted
+
+	o.mu.Lock()
+	_ = o.highlight(par, false)
+	o.mu.Unlock()
+	time.Sleep(25 * time.Millisecond) // part way back
+	if mid := level(1); mid <= 10 || mid >= 128 {
+		t.Fatalf("not part way back: dimmer at %d", mid)
+	}
+	o.mu.Lock()
+	_ = o.highlight(par, true)
+	o.mu.Unlock()
+	time.Sleep(120 * time.Millisecond)
+	o.mu.Lock()
+	_ = o.highlight(par, false)
+	o.mu.Unlock()
+	time.Sleep(150 * time.Millisecond)
+	if got := []byte{level(1), level(2)}; got[0] != 10 || got[1] != 40 {
+		t.Errorf("after the second highlight the fixture is at %v, wanted [10 40]", got)
+	}
+	o.mu.Lock()
+	left := len(o.restoring)
+	o.mu.Unlock()
+	if left != 0 {
+		t.Errorf("%d fixtures still marked as fading back", left)
+	}
+}

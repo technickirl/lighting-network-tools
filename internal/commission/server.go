@@ -408,6 +408,56 @@ func badNewIP(ip string) string {
 	return ""
 }
 
+// edgeOfSubnet refuses the network and broadcast addresses of the mask being set: no device can use them.
+func edgeOfSubnet(ip, mask string) string {
+	a, m := net.ParseIP(ip).To4(), net.IPMask(net.ParseIP(mask).To4())
+	if ones, _ := m.Size(); a == nil || ones > 30 {
+		return ""
+	}
+	allZero, allOne := true, true
+	for i := range a {
+		host := a[i] &^ m[i]
+		allZero = allZero && host == 0
+		allOne = allOne && host == ^m[i]
+	}
+	switch {
+	case allZero:
+		return ip + " is the network address for " + mask + "."
+	case allOne:
+		return ip + " is the broadcast address for " + mask + "."
+	}
+	return ""
+}
+
+// addressClash mirrors the page's checks, for any caller that skips them (the Configure page's Network dialog, a
+// second device): two devices in one request getting the same address, or an address a listed device holds now.
+// A holder that is being moved in this same request still counts, as the two changes are not ordered.
+func addressClash(targets map[string]string) string {
+	byIP := map[string]string{}
+	for id, ip := range targets {
+		if other, dup := byIP[ip]; dup {
+			a, b := id, other
+			if b < a {
+				a, b = b, a
+			}
+			return fmt.Sprintf("%s and %s would both get %s.", a, b, ip)
+		}
+		byIP[ip] = id
+	}
+	state.mu.Lock()
+	defer state.mu.Unlock()
+	for _, d := range state.devices {
+		if id, wanted := byIP[d.IP]; wanted && id != d.ID {
+			name := d.Name
+			if name == "" {
+				name = d.Serial
+			}
+			return fmt.Sprintf("%s is in use by %s (%s). Move that device first, or tick \"Ignore address clashes\".", d.IP, name, d.Serial)
+		}
+	}
+	return ""
+}
+
 // validMask accepts a dotted IPv4 netmask whose ones are contiguous and
 // between /1 and /31. maskToCIDR turns anything else into 0, which would
 // send prefix_length 0 to a switch, so the mask is checked here first.
@@ -446,6 +496,9 @@ func handleApply(w http.ResponseWriter, r *http.Request) {
 		} `json:"items"`
 		Netmask string `json:"netmask"`
 		Gateway string `json:"gateway"`
+		// IgnoreClash is the page's "Ignore address clashes" tick-box: the operator has chosen to put a device
+		// on an address another one holds.
+		IgnoreClash bool `json:"ignoreClash"`
 	}
 	if err := readJSON(r, &body); err != nil || len(body.Items) == 0 {
 		writeJSON(w, 400, map[string]string{"error": "No devices to address."})
@@ -476,10 +529,17 @@ func handleApply(w http.ResponseWriter, r *http.Request) {
 			writeJSON(w, 400, map[string]string{"error": "Device " + it.ID + " is listed twice."})
 			return
 		}
+		if why := edgeOfSubnet(it.NewIP, body.Netmask); why != "" {
+			writeJSON(w, 400, map[string]string{"error": why})
+			return
+		}
 		ids = append(ids, it.ID)
 		targets[it.ID] = it.NewIP
 	}
 	devs, msg := lookup(ids)
+	if msg == "" && !body.IgnoreClash {
+		msg = addressClash(targets)
+	}
 	if msg != "" {
 		writeJSON(w, 400, map[string]string{"error": msg})
 		return

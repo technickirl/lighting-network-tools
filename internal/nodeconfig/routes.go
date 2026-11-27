@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"github.com/technickirl/lighting-network-tools/internal/luminex"
 	"io"
+	"net"
 	"net/http"
 	"regexp"
 	"strconv"
@@ -17,9 +18,14 @@ import (
 	"time"
 )
 
-var hostRe = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9.\-]{0,253}$`)
+// validHost accepts only a dotted IPv4 address: every device this page talks to is reached by one. A host name
+// would let a link (#node=<name>) or a request point the tool, and its password dialog, at any server by name.
+func validHost(s string) bool {
+	ip := net.ParseIP(s)
+	return ip != nil && ip.To4() != nil && strings.Count(s, ".") == 3 && !strings.Contains(s, ":")
+}
 
-func validHost(s string) bool { return hostRe.MatchString(s) }
+var digits = regexp.MustCompile(`^\d{1,6}$`)
 
 func writeJSON(w http.ResponseWriter, status int, v any) {
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
@@ -266,18 +272,48 @@ func editBlock(ip, idx string, edits obj) error {
 	return err
 }
 
-// guardWrites refuses a write to a device a job is working on. Reads still go out,
-// and so does the password route, which only reads the device.
+// nodeTurn gives each node one config write at a time. An edit is several calls (read the block, change it, put it
+// back whole), so two pages working on one node, a laptop and an iPad say, could otherwise undo each other.
+var nodeTurn sync.Map // ip → *sync.Mutex
+
+func turnFor(ip string) *sync.Mutex {
+	m, _ := nodeTurn.LoadOrStore(ip, &sync.Mutex{})
+	return m.(*sync.Mutex)
+}
+
+// guardWrites refuses a write to a device a job is working on, and makes config writes to one node take turns.
+// Reads still go out, and so does the password route, which only reads the device. RDM requests are left out of
+// the turns: they have their own line lock, and an ID OFF must not wait behind a config edit.
+// Every route also has its {idx} and {pb} checked here: they go into the device's URL, so they must be numbers.
 func guardWrites(pattern string, h http.HandlerFunc) http.HandlerFunc {
 	write := strings.Contains(pattern, "/api/node/{ip}/") && !strings.HasPrefix(pattern, "GET ") &&
 		!strings.HasSuffix(pattern, "/cache") && !strings.HasSuffix(pattern, "/password")
-	if !write {
-		return h
-	}
+	takeTurn := write && !strings.Contains(pattern, "/rdm/")
 	return func(w http.ResponseWriter, r *http.Request) {
-		if isLocked, why := locked(r.PathValue("ip")); isLocked {
+		for _, name := range []string{"idx", "pb"} {
+			if v := r.PathValue(name); v != "" && !digits.MatchString(v) {
+				fail(w, 400, fmt.Errorf("bad number %q", v))
+				return
+			}
+		}
+		if !write {
+			h(w, r)
+			return
+		}
+		ip := r.PathValue("ip")
+		if isLocked, why := locked(ip); isLocked {
 			writeJSON(w, http.StatusConflict, obj{"ok": false, "locked": true, "error": why})
 			return
+		}
+		if takeTurn && validHost(ip) {
+			turn := turnFor(ip)
+			turn.Lock()
+			defer turn.Unlock()
+			// A job may have started on this node while the request waited.
+			if isLocked, why := locked(ip); isLocked {
+				writeJSON(w, http.StatusConflict, obj{"ok": false, "locked": true, "error": why})
+				return
+			}
 		}
 		h(w, r)
 	}
@@ -923,17 +959,31 @@ func setBlockControl(ip, pbIdx string, c blockControl) error {
 	if ioID, err = findOrCreateIO(ip, c.Protocol, ctrlType, *c.Universe, &[]obj{}); err != nil {
 		return err
 	}
-	if _, err := lumiDo("PUT", ip, path, obj{"io_id": ioID}); err != nil {
-		return err
+	if luminex.DryRun {
+		_, err := lumiDo("PUT", ip, path, obj{"io_id": ioID})
+		return err // nothing was created
 	}
+	// The IO now exists and the node has attached it to every block with this control unset, so it is taken
+	// back off the others whether or not the assign below works.
+	var putErr error
 	if ioID < 0 {
-		return nil // dry run: nothing was created
+		putErr = fmt.Errorf("the node made the control IO but did not say which one it is: check this block's %s control", c.Role)
+	} else {
+		_, putErr = lumiDo("PUT", ip, path, obj{"io_id": ioID})
 	}
-	return detachNewControl(ip, pbIdx, ctrlType, field, ioID, before)
+	detErr := detachNewControl(ip, pbIdx, ctrlType, field, ioID, before)
+	switch {
+	case putErr != nil && detErr != nil:
+		return fmt.Errorf("%v; and %v", putErr, detErr)
+	case putErr != nil:
+		return putErr
+	}
+	return detErr
 }
 
 // detachNewControl takes a just-created control IO off every block that had that control
-// unset before it was created, apart from the one it was made for.
+// unset before it was created, apart from the one it was made for. With ioID unknown (-1)
+// it takes off whatever such a block has gained.
 func detachNewControl(ip, pbIdx, ctrlType, field string, ioID int, before []obj) error {
 	wasUnset := map[int]bool{}
 	for _, b := range before {
@@ -948,7 +998,8 @@ func detachNewControl(ip, pbIdx, ctrlType, field string, ioID int, before []obj)
 	var stuck []string
 	for _, b := range after {
 		id := numOr(b, "id", -1)
-		if strconv.Itoa(id) == pbIdx || !wasUnset[id] || numOr(b, field, -1) != ioID {
+		got := numOr(b, field, -1)
+		if strconv.Itoa(id) == pbIdx || !wasUnset[id] || got < 0 || (ioID >= 0 && got != ioID) {
 			continue
 		}
 		if _, err := lumiDo("DELETE", ip, fmt.Sprintf("/api/processblock/%d/%s", id, ctrlType), nil); err != nil {

@@ -151,6 +151,7 @@ function soRender() {
   if (soError) { lines.push(esc(soError)); cls = 'banner err'; }
   if (so.error) { lines.push(esc(so.error)); cls = 'banner err'; }
   if (running && so.dry) lines.push('DRY RUN: the output is running but nothing is sent to the network.');
+  if (so.rxError) { lines.push(`Cannot listen for other sACN sources (${esc(so.rxError)}), so a console sending to these universes would not be shown here.`); cls = 'banner err'; }
   for (const u of so.universes) {
     for (const o of u.others) {
       lines.push(`Universe ${u.universe}: <strong>${esc(o.name || 'another source')}</strong> (${esc(o.ip)}, priority ${o.priority}) is sending too. ` +

@@ -46,6 +46,13 @@ So the input is chosen before anything is cleared, and only from IOs no other
 block holds (the block's own count as free); otherwise a new IO is made. Taking
 another block's IO used to leave the port cleared with no input or output.
 
+Config writes to one node take turns (27 Nov 2026): an edit is a read, a change
+and a whole-object write back, so two pages on one node could undo each other.
+RDM requests are outside this. `{ip}` must be a dotted IPv4 address and `{idx}`,
+`{pb}` numbers. A factory reset with KEEP ADDRESS that gets no reply still reads
+the fixture and puts the address back, and a fixture still on its address is
+read once more 2 s later before it is called kept (fakes only).
+
 ## Process and IOs pages
 
 Both pages show the node the way an operator talks about it, not by IO id.

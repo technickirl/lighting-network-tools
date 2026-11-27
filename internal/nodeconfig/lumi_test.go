@@ -198,10 +198,11 @@ func TestLumiDoTriesBlankPasswordThenAsks(t *testing.T) {
 // wiringNode is a stand-in node that keeps blocks and IOs, and like a real one deletes
 // a network IO when its last use comes off and refuses an IO that is already attached.
 type wiringNode struct {
-	blocks []obj
-	ios    []obj
-	next   int
-	calls  []string
+	failCtrlPut bool // refuse the assign of a control IO
+	blocks      []obj
+	ios         []obj
+	next        int
+	calls       []string
 }
 
 // blockAt finds the block a /api/processblock/<n>/... path is about.
@@ -271,6 +272,10 @@ func (n *wiringNode) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 		w.WriteHeader(204)
 	case r.Method == "PUT" && strings.HasSuffix(r.URL.Path, "/x-fade-ctrl"):
+		if n.failCtrlPut {
+			w.WriteHeader(500)
+			return
+		}
 		id := body["io_id"].(float64)
 		for _, io := range n.ios {
 			if io["id"] == id && io["io_type"] == "x-fade-ctrl" {
@@ -557,5 +562,40 @@ func TestStartupBufferClearSendsOnlySettableFields(t *testing.T) {
 	}
 	if buf, _ := sent["startup_buffer"].([]any); len(buf) != 0 || sent["name"] != "PB 4" || sent["mode"] != "HTP" {
 		t.Errorf("sent %s", put.Body)
+	}
+}
+
+// The node attaches a new control IO to every block with that control unset the moment it is created. If the
+// assign that follows fails, it must still come back off the other blocks.
+func TestFailedControlAssignStillCleansUp(t *testing.T) {
+	ip, n := startWiringNode(t)
+	n.blocks[0]["mode"], n.blocks[0]["xfade_ctrl"] = "XFADE", float64(-1)
+	n.blocks[1]["xfade_ctrl"] = float64(-1)
+	n.failCtrlPut = true
+	if err := setBlockControl(ip, "0", blockControl{Role: "xfade", Protocol: "sacn", Universe: u(70)}); err == nil {
+		t.Fatal("the refused assign was not reported")
+	}
+	if n.blocks[1]["xfade_ctrl"] != float64(-1) {
+		t.Errorf("the new control stayed on another block: %v", n.blocks[1]["xfade_ctrl"])
+	}
+}
+
+func TestOnlyIPv4AddressesAndNumbersReachADevice(t *testing.T) {
+	for host, want := range map[string]bool{"192.168.1.8": true, "2.0.0.1": true, "attacker.example": false, "localhost": false,
+		"192.168.1": false, "::1": false, "::ffff:192.168.1.8": false, "192.168.1.8:81": false, "": false} {
+		if validHost(host) != want {
+			t.Errorf("validHost(%q) = %v", host, !want)
+		}
+	}
+	srv := mounted(t)
+	for _, path := range []string{"/api/node/192.168.1.8/processblock/1%2F..%2F..%2Freset/raw", "/api/node/192.168.1.8/startup/x/snapshots"} {
+		res, err := http.Get(srv.URL + path)
+		if err != nil {
+			t.Fatal(err)
+		}
+		res.Body.Close()
+		if res.StatusCode != 400 {
+			t.Errorf("%s: %d, wanted 400", path, res.StatusCode)
+		}
 	}
 }

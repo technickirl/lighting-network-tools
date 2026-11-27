@@ -420,6 +420,10 @@ func encodeParam(d artnet.ParamDescription, v any) ([]byte, error) {
 
 // rereadAfter reads a fixture back after it was reset or restarted, which can
 // take it off the line for a while: it keeps asking for up to `wait`.
+// resetSettle is how long after a factory reset a fixture that still reads its old address is given before it is
+// believed. A variable so tests do not wait.
+var resetSettle = 2 * time.Second
+
 func rereadAfter(r fixtureRef, wait time.Duration) (rdmFixture, error) {
 	end := time.Now().Add(wait)
 	for {
@@ -481,9 +485,14 @@ func fixtureAction(ip string, port int, uid string, action string, keepAddress b
 		}
 		return readFixture(r.ctl, ip, r.pa, r.uid), note, nil
 	}
-	if err != nil {
+	// A reset that got no reply may still have happened (the fixture reset before answering, or the answer was
+	// lost), so with an address to keep the fixture is read anyway and put back if it moved. A refusal (NACK) is
+	// a definite no.
+	var nack *artnet.NackError
+	if err != nil && (keep == 0 || errors.As(err, &nack)) {
 		return rdmFixture{}, "", err
 	}
+	unanswered := err
 	f, err = rereadAfter(r, 30*time.Second)
 	if err != nil || keep == 0 {
 		if err != nil && keep > 0 {
@@ -492,6 +501,17 @@ func fixtureAction(ip string, port int, uid string, action string, keepAddress b
 		return f, note, err
 	}
 	if f.Start != nil && *f.Start == keep {
+		// Still at its address. A fixture that acknowledges first and applies its defaults a moment later reads
+		// like this too, so look once more before calling it kept.
+		time.Sleep(resetSettle)
+		if f, err = rereadAfter(r, 30*time.Second); err != nil {
+			return f, note, fmt.Errorf("%v, so it is not back at address %d yet", err, keep)
+		}
+	}
+	if f.Start != nil && *f.Start == keep {
+		if unanswered != nil {
+			return f, "", fmt.Errorf("the reset got no reply (%v) and the fixture still reads address %d: it may not have reset", unanswered, keep)
+		}
 		return f, fmt.Sprintf("address %d kept", keep), nil
 	}
 	if err := r.ctl.Set(ip, r.pa, r.uid, artnet.PIDDMXStartAddress, []byte{byte(keep >> 8), byte(keep)}); err != nil {
