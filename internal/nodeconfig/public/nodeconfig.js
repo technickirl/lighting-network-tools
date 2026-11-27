@@ -160,6 +160,8 @@ async function loadNode(addr) {
   if (d.processBlocks) renderProcessBlocks(d.processBlocks);
   if (d.dmxIOs || d.sacnIOs || d.allIOs) renderIOs(d);
   if (d.dmxPorts)      renderDmxPorts(d.dmxPorts);
+  else if (d.noLivePorts) nc$('dmx-body').innerHTML = `<div class="empty"><div class="icon">◎</div>
+      <p>This node's firmware does not report live DMX port state. Everything else on this page works.</p></div>`;
   if (d.network)       renderNetwork(d.network);
   if (d.profiles)      renderProfiles(d.profiles);
   if (d.device)        renderQuickSetup(d.device.dmxPorts);
