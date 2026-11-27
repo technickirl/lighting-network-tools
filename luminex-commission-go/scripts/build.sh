@@ -11,7 +11,7 @@ mkdir -p dist
 # and into the binary (main.version) so the UI and the file always agree.
 # Mac binaries end in .command: with dots in the name Finder would otherwise read
 # ".6-macos-arm64" as the extension and refuse to open them; .command opens in Terminal.
-VERSION="${VERSION:-$(git describe --tags --abbrev=0 2>/dev/null | sed 's/^v//')}"
+VERSION="${VERSION:-$(git describe --tags --abbrev=0 2>/dev/null | sed 's/^v//' || true)}"
 VERSION="${VERSION:-dev}"
 LDFLAGS="-s -w -X main.version=$VERSION"
 echo "darwin/arm64";  GOOS=darwin  GOARCH=arm64 go build -trimpath -ldflags "$LDFLAGS" -o "dist/LuminexCommission-$VERSION-macos-arm64.command" .

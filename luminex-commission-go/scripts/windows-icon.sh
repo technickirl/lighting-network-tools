@@ -7,7 +7,7 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 export PATH="/opt/homebrew/bin:/usr/local/go/bin:$PATH"
-VERSION="${VERSION:-$(git describe --tags --abbrev=0 2>/dev/null | sed 's/^v//')}"
+VERSION="${VERSION:-$(git describe --tags --abbrev=0 2>/dev/null | sed 's/^v//' || true)}"
 ARGS=(--arch amd64 --out rsrc --manifest cli --icon icon/windows.png
       --product-name "Luminex Commission" --file-description "Luminex Commission")
 # Windows wants numbers here; a build with no tag goes without.
