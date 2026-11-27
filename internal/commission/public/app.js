@@ -2,6 +2,23 @@
 // Luminex IP Setup — browser side. All state comes from the server over one
 // EventSource; the page renders it. History and the numbering setup live in localStorage.
 
+// A script error on a page nobody can open a console on (an iPad) used to show as a button that does nothing. Each
+// one is now written under the device list and sent to the tool's log, a few per page load.
+let pageErrors = 0;
+function reportPageError(what) {
+  if (++pageErrors > 8) return;
+  const msg = String(what).slice(0, 400);
+  try { for (const id of ['logLine', 'configLog']) { const el = document.getElementById(id); if (el) el.textContent = '› Page error: ' + msg; } } catch {}
+  try { fetch('/api/client-log', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ message: msg, agent: navigator.userAgent }) }).catch(() => {}); } catch {}
+}
+// Captured, so a script or stylesheet that fails to load is seen too (that error does not bubble).
+window.addEventListener('error', e => {
+  const t = e.target;
+  if (t && t !== window && (t.src || t.href)) reportPageError(`Could not load ${String(t.src || t.href).split('/').pop()}.`);
+  else reportPageError(`${e.message} (${String(e.filename || '').split('/').pop()}:${e.lineno || 0})`);
+}, true);
+window.addEventListener('unhandledrejection', e => reportPageError((e.reason && (e.reason.stack || e.reason.message)) || e.reason));
+
 const $ = id => { const el = document.getElementById(id); if (!el) throw new Error(`Missing element #${id}`); return el; };
 const els = {
   version: $('version'), wordmark: $('wordmark'), toolTitle: $('toolTitle'), dryBadge: $('dryBadge'), connPill: $('connPill'), banner: $('banner'),
@@ -371,7 +388,9 @@ function historyConfigure(b, h) {
 function onConfigureClick(ev) {
   const b = ev.target.closest('[data-configure-ip]');
   if (!b || b.disabled) return;
-  openNode(b.dataset.configureIp, b.dataset.configureId); // node.js
+  // node.js is its own file: if it did not load, say so instead of doing nothing.
+  if (typeof openNode !== 'function') { reportPageError('The Node view did not load (node.js), so Configure cannot open a node.'); return; }
+  openNode(b.dataset.configureIp, b.dataset.configureId);
 }
 
 // ─── Views ──────────────────────────────────────────────────────────────────

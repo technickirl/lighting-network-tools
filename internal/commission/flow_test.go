@@ -374,3 +374,14 @@ func TestSerialAtKnowsOnlyAnUnsharedAddress(t *testing.T) {
 		t.Errorf("a shared or unknown address has no one serial: %q", got)
 	}
 }
+
+// A page's script error reaches the tool's log on one line, however it is sent.
+func TestClientLogTakesAPageError(t *testing.T) {
+	srv, _ := startFlow(t)
+	if code, body := postJSON(t, srv.URL+"/api/client-log", `{"message":"openNode is not defined\n(app.js:380)","agent":"CriOS"}`); code != 200 {
+		t.Errorf("%d %s", code, body)
+	}
+	if code, _ := postJSON(t, srv.URL+"/api/client-log", `{"message":"  "}`); code != 400 {
+		t.Errorf("an empty message: %d", code)
+	}
+}
